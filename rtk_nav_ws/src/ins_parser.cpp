@@ -20,6 +20,9 @@
 // GeographicLib 用于 UTM 转换
 #include <GeographicLib/UTMUPS.hpp>
 
+// PROJ 用于 EPSG 投影转换
+#include <proj.h>
+
 // TF2 用于 欧拉角转四元数
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
@@ -115,12 +118,15 @@ public:
     InsNode() : Node("ins_parser_node"), utm_zone_(-1), utm_northp_(true), gpgga_count_(0), headinga_count_(0) {
         this->declare_parameter<std::string>("port", "/dev/ttyUSB0");
         this->declare_parameter<int>("baudrate", 115200);
+        this->declare_parameter<bool>("use_epsg_crs_datum", true);
 
         std::string port = this->get_parameter("port").as_string();
         int baudrate = this->get_parameter("baudrate").as_int();
+        use_epsg_crs_datum_ = this->get_parameter("use_epsg_crs_datum").as_bool();
 
         pub_fix_ = this->create_publisher<geometry_msgs::msg::PointStamped>("fix", 10);
         utm_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("utm_fix", 10);
+        epsg_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("epsg_position", 10);
 
         RCLCPP_INFO(this->get_logger(), "=== INS Parser Node Started ===");
         RCLCPP_INFO(this->get_logger(), "Port: %s, Baud: %d", port.c_str(), baudrate);
@@ -377,6 +383,7 @@ private:
             // --- 步骤 D: 发布数据 ---
             if (is_computed && yaw_valid) {
                 publish_utm_pose();
+                publish_epsg_pose();
             }
 
         } catch (const std::exception& e) {
@@ -470,8 +477,89 @@ private:
         }
     }
 
+    void publish_epsg_pose() {
+        std::lock_guard<std::mutex> lock(data_mutex_);
+
+        if (!gnss_data_.has_valid_gps || !gnss_data_.is_heading_computed) return;
+
+        bool is_valid_pos = (std::abs(gnss_data_.lat) > 1e-6 || std::abs(gnss_data_.lon) > 1e-6);
+        if (!is_valid_pos) return;
+
+        PJ_CONTEXT *C = proj_context_create();
+        if (!C) {
+            RCLCPP_ERROR_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "Failed to create PROJ context");
+            return;
+        }
+
+        PJ *P = nullptr;
+        if (use_epsg_crs_datum_) {
+            P = proj_create_crs_to_crs(C, "EPSG:4326", "EPSG:2100", nullptr);
+        } else {
+            P = proj_create(C,
+                "+proj=tmerc "
+                "+lat_0=0 "
+                "+lon_0=24 "
+                "+k=0.9996 "
+                "+x_0=500000 "
+                "+y_0=0 "
+                "+ellps=GRS80 "
+                "+units=m "
+                "+no_defs"
+            );
+        }
+
+        if (!P) {
+            RCLCPP_ERROR_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "Failed to create EPSG projection");
+            proj_context_destroy(C);
+            return;
+        }
+
+        P = proj_normalize_for_visualization(C, P);
+
+        PJ_COORD coord = proj_coord(gnss_data_.lon, gnss_data_.lat, gnss_data_.alt, 0);
+        coord = proj_trans(P, PJ_FWD, coord);
+
+        double epsg_x = coord.xy.x;
+        double epsg_y = coord.xy.y;
+
+        auto msg = std::make_unique<geometry_msgs::msg::PoseStamped>();
+        msg->header.stamp = gnss_data_.stamp;
+        msg->header.frame_id = "epsg_2100";
+
+        msg->pose.position.x = epsg_x;
+        msg->pose.position.y = epsg_y;
+        msg->pose.position.z = coord.xyz.z;
+
+        double yaw_ros_deg = 90.0 - gnss_data_.yaw_deg;
+        double yaw_ros_rad = yaw_ros_deg * M_PI / 180.0;
+        yaw_ros_rad = std::fmod(yaw_ros_rad, 2.0 * M_PI);
+        if (yaw_ros_rad > M_PI) yaw_ros_rad -= 2.0 * M_PI;
+        if (yaw_ros_rad <= -M_PI) yaw_ros_rad += 2.0 * M_PI;
+
+        tf2::Quaternion q;
+        q.setRPY(0.0, 0.0, yaw_ros_rad);
+        q.normalize();
+
+        msg->pose.orientation.x = q.x();
+        msg->pose.orientation.y = q.y();
+        msg->pose.orientation.z = q.z();
+        msg->pose.orientation.w = q.w();
+
+        epsg_pub_->publish(std::move(msg));
+
+        static int epsg_log_count = 0;
+        if (++epsg_log_count % 20 == 0) {
+            RCLCPP_INFO(this->get_logger(), "EPSG Pose: x=%.3f, y=%.3f, yaw=%.2f",
+                        epsg_x, epsg_y, yaw_ros_deg);
+        }
+
+        proj_destroy(P);
+        proj_context_destroy(C);
+    }
+
     rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr pub_fix_;
-    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr utm_pub_; 
+    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr utm_pub_;
+    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr epsg_pub_; 
     
     SerialPort serial_;
     std::thread thread_;
@@ -479,6 +567,7 @@ private:
 
     int utm_zone_;
     bool utm_northp_;
+    bool use_epsg_crs_datum_;
     std::mutex data_mutex_;
     GnssData gnss_data_;
     
