@@ -1,0 +1,6 @@
+# Request (空)
+---
+# Response
+geometry_msgs/Point waypoint
+bool success
+string message

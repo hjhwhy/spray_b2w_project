@@ -1,0 +1,8 @@
+# config/rs485_params.yaml
+
+rs485_node:  
+  ros__parameters:
+    serial_port: "/dev/ttyTHS1"
+    baud: 9600
+    waypoint_file: "~/gnss_waypoints.txt"
+    trigger_time_ms: 600  #毫秒

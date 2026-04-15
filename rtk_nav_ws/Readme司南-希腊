@@ -1,0 +1,16 @@
+1、实时数据读取，系统232线接口
+  ros2 run ins_driver_node  ins_parse  --ros-args -p port:=/dev/ttyTHS2  -p  baudrate:=115200
+2、解析惯导状态   SOLUTION GOOD最好， SOLUTION FREE 处于惯导状态
+4、航向问题--- 角度数据统一到 0-360度
+5、构建基于司南定位的到单个目标点
+  发布cmd_vel话题  geometry_msgs/msgs/Twist
+板卡接口 ros2 run ins_driver_node  ins_parse  --ros-args -p port:=/dev/ttyTHS2  -p  baudrate:=115200  
+ ros2 run ins_driver_node dog_controller --ros-args -p waypoint_file:=/home/test/waypoints.txt
+ ./odom_publisher
+ 
+6、希腊工控机THS2 默认是232
+
+8、APP联调
+	8.1、保留当前机器狗作为服务器的版本，后面可能需要直连
+	8.2、新增一版，阿里云服务器作为中继 39.103.70.59 ，狗连 9001 端口
+

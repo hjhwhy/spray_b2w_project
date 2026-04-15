@@ -1,0 +1,86 @@
+根据tcp通信协议，该节点用来接收遥控器下发的包
+
+下发协议如下，指令类型0x01代表开始，02为暂停，03为结束，04为前进，05为后退，06为左移，07为右移，
+08为左转，09为右转， 0x10代表暂停后恢复
+另外，不需要CRC校验。
+遥控器下发协议：
+1、
+字段  包头  功能码  数据段长度  指令类型   CRC低字节  CRC高字节  包尾
+值   0xF5  0x08   2字节      1字节   1字节     1字节      0x5F
+
+2、优先区域
+字段 包头 功能码  区域数量  边框点1(X Y) 边框点2(X Y) 边框点3(X Y) 边框点4(X Y) 指令类型 CRC低字节 CRC高字节 包尾
+值  0xF5 0x09  1字节	16字节       16字节        16字节        16字节        0x11   1字节    1字节    0x5F
+
+3、避让区域
+字段 包头 功能码  区域数量  边框点1(X Y) 边框点2(X Y) 边框点3(X Y) 边框点4(X Y) 指令类型 CRC低字节 CRC高字节 包尾
+值  0xF5 0x09  1字节	16字节       16字节        16字节        16字节        0x12   1字节    1字节    0x5F
+
+上传协议，发送进度值和坐标的功能
+0x06代表发位置，0x07代表发坐标，不需要CRC校验
+收到/progress 主题，类型 std_msgs/Byte，发布 0x06功能码对应的进度值
+收到 /position 主题，类型 geometry_msgs/Point，发布0x07功能码对应的 XYZ 坐标
+
+1、任务进度
+字段  包头  功能码  数据段长度 进度值  CRC低字节  CRC高字节 包尾
+值    0xF5  0x06   2字节     1字节  1字节      1字节     0x5F
+
+2、当前位置
+字段 包头   功能码  X轴坐标   Y轴坐标   Z轴坐标  CRC低字节  CRC高字节  包尾
+值   0xF5  0x07   8字节     8字节    8字节    1字节     1字节      0x5F
+
+3.当前电机温度 用于主控上传喷涂机器人当前的电机温度，协议字段定义如下：
+字段  包头  功能码  温度值  CRC低字节  CRC高字节  包尾
+值   0xF5  0x05   1字节  1字节      1字节      0x5F
+
+4.机器人轨迹信息 用于主控上传喷涂机器人的运动轨迹，协议字段定义如下：
+字段  包头  功能码  点数量N  轨迹点1(X Y Z)  轨迹点2(X Y Z) …  轨迹点N(X Y Z)  CRC低字节  CRC高字节 包尾
+值   0xF5  0x04   1字节   24字节          24字节         …  24字节         1字节      1字节    0x5F
+
+5.目标点位信息（未标记），用于上传未标记的目标点位，
+字段  包头  功能码  点数量N  目标点1(X Y Z)  目标点2(X Y Z) …  目标点N(X Y Z)  CRC低字节  CRC高字节 包尾
+值   0xF5  0x03   2字节   24字节          24字节         …  24字节         1字节      1字节    0x5F
+
+6.目标点位信息（已标记），用于上传已经标记的点位
+字段  包头  功能码  点数量N  目标点1(X Y Z)  目标点2(X Y Z) …  目标点N(X Y Z)  CRC低字节  CRC高字节 包尾
+值   0xF5  0x02   2字节   24字节          24字节         …  24字节         1字节      1字节    0x5F
+
+7.所有目标点位
+字段  包头  功能码  点数量N  目标点1(X Y Z)  目标点2(X Y Z) …  目标点N(X Y Z)  CRC低字节  CRC高字节 包尾
+值   0xF5  0x01   2字节   24字节          24字节         …  24字节         1字节      1字节    0x5F
+
+×××××××××××××
+测试：
+
+ros2 run robot_tcp robot_tcp_node
+
+# 发送进度 80%
+ros2 topic pub /progress std_msgs/msg/Byte "{data: [204]}"  # 204 ≈ 80% of 255
+
+# 发送坐标
+ros2 topic pub  /b2w_odom nav_msgs/msg/Odometry "{
+  header: {frame_id: 'odom'},
+  child_frame_id: 'base_link',
+  pose: {pose: {position: {x: 1.5, y: 2.0, z: 0.0}, orientation: {w: 1.0}}}
+}"
+
+# 发送轨迹
+ros2 topic pub /b2w_path nav_msgs/msg/Path "{
+  header: {stamp: {sec: 0, nanosec: 0}, frame_id: 'map'},
+  poses: [
+    {pose: {position: {x: 0.0, y: 0.0, z: 0.0}, orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}} },
+    {pose: {position: {x: 1.0, y: 1.0, z: 0.0}, orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}} },
+    {pose: {position: {x: 2.0, y: 0.0, z: 0.0}, orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}} }
+  ]
+}"
+
+# 发送已经标记和未标记话题
+publish_acquired_points.py 脚本，该下话题名即可
+
+# 发送电机温度
+ros2 topic pub -r 1 /motors_temperatures std_msgs/msg/Float32MultiArray "{data: [35.5, 40.2, 38.0, 42.5]}"
+
+#
+python3 test_forward.py
+ros2 run b2w_navigation_controller b2w_teleop_node wlp3s0  #或lo eth2
+ros2 topic echo /joy   									   #有消息收到

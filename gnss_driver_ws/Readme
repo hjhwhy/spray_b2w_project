@@ -1,0 +1,7 @@
+
+sudo chmod 777 /dev/ttyTHS2
+
+ros2  launch  gnss_driver  gnss.launch.py
+
+#########################################
+~/gnss_driver_log 目录下记录了实时数据

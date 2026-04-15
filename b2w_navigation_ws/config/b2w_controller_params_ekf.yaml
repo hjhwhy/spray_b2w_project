@@ -1,0 +1,16 @@
+b2w_nav_node:
+  ros__parameters:
+    min_move_distance_for_yaw: 1.8         # 增加距离提高方向估计精度
+    initial_move_speed: 0.9                # 更慢更稳
+    min_speed_for_cog: 0.3                 # COG 校正最小速度阈值
+    min_distance_for_cog: 0.3              # COG 校正最小距离值
+    heading_alignment_threshold: 0.06      # 弧度
+    moving_to_target_forward_speed: 0.9    # 作业时的前进速度
+    z1_arm_end_height: 0.0                 # 机械臂末端移动高度
+    arm_offset_x: 0.3487                   # 机械臂urdf offset x
+    arrive_distance: 0.8                   # 机器狗到达目标点的阈值
+    calibration_duration: 5.0              # imu静态标定时间
+    imu_k_correction_error: 0.01           # imu零偏矫正增益系数  0.003 ?
+    imu_gyro_z_threshold: 0.03             # imu角速度阈值，小于该值才能进行 COG 校正
+    enable_correctYawBias: true            # 默认先关闭 correctYawBias ,观察纯imu的积分误差
+    rtk_hz: 10                              # 默认为2hz，建议改成10hz

@@ -1,0 +1,10 @@
+sudo chmod 777 /dev/ttyTHS2
+ros2 run ins_driver_node ins_parser --ros-args -p port:=/dev/ttyTHS2 -p baudrate:=115200
+
+./lidar_imu_odom_scan_ws/build/odom_pub/odom_publisher
+ 
+ ros2 launch rslidar_sdk 
+ 
+ ros2 run ins_driver_node dog_controller
+
+

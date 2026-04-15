@@ -1,0 +1,12 @@
+
+sudo  /opt/vendor_test/tac3kp_uart_mode_config.sh  485
+
+sudo  chmod 777 /dev/ttyTHS1
+
+ros2  launch  rs485_node  rs485.launch.py
+
+
+
+ros2 service call  /set_relay_ch1  std_srvs/srv/SetBool   “{data: true}”   打开水泵
+ros2 service call  /set_relay_ch1  std_srvs/srv/SetBool   “{data: false}”   关闭水泵
+ros2 service call /trigger_relay_ch2  std_srvs/srv/Trigger “{}” 电磁阀

@@ -1,0 +1,5 @@
+# config/path_planner.yaml
+
+spray_path_planner:  
+  ros__parameters:
+    file_path: "/home/test/gnss_waypoints.txt"

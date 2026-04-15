@@ -1,0 +1,10 @@
+# config/gnss_params.yaml
+
+gnss_driver:  
+  ros__parameters:
+    connect_mode: "serial"         # 或 "tcp_client"
+    port: "/dev/ttyTHS2"
+    baud: 115200
+    waypoint_file: "~/gnss_waypoints.txt"
+    project_mode: "epsg"   #或 “epsg"
+    use_epsg_crs_datum: true      # 默认使用 datum 转换，若有偏差，说明打点时没用，再改成false

@@ -1,0 +1,9 @@
+
+ros2 launch  spray_path_planner  path_planner.launch.py
+
+
+
+****************************************
+spray_path_planner_ws/path_saved.csv
+//to plot path_saved.csv, use the script below
+python3 plot_path.py  

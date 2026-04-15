@@ -1,0 +1,13 @@
+step1:
+cd z1_controller/build
+./z1_ctrl
+
+step2:
+ros2 run z1_arm_controller_cpp z1_arm_controller_node
+
+***********************************
+test:
+ros2 service call /z1_move_in_base_frame z1_arm_controller_cpp/srv/MoveArmWithRPY "{position: {x: 0.8, y: 0.2, z: 0.0}, rpy: [0.0, 1.5708, 0.0]}"
+
+ros2 service call /z1_reset_arm z1_arm_controller_cpp/srv/MoveArm "{}"
+

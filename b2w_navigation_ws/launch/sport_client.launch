@@ -1,0 +1,36 @@
+from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument, LogInfo
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch_ros.substitutions import FindPackageShare
+from launch_ros.actions import Node
+
+
+def generate_launch_description():
+    # 声明网络接口参数
+    interface_arg = DeclareLaunchArgument(
+        'interface',
+        default_value='lo',  # 默认回环，安全
+        description='Network interface for Unitree B2 SDK (e.g., enp2s0, eth0, lo)'
+    )
+    
+    config_file_path = PathJoinSubstitution([
+        FindPackageShare('b2w_navigation_controller'),  
+        'config',
+        'sport_client_example_params.yaml'
+    ])
+
+    sport_client_node = Node(
+        package='b2w_navigation_controller',          
+        executable='sport_client_example',  # 必须与 CMake 中 add_executable 名称一致
+        name='sport_client_example',
+        output='screen',
+        emulate_tty=True,
+        arguments=[LaunchConfiguration('interface'), config_file_path]
+    )
+
+    return LaunchDescription([
+        interface_arg,
+        LogInfo(msg=['Launching sport_client_example with interface: ', LaunchConfiguration('interface')]),
+        LogInfo(msg=['Using config file: ', config_file_path]),
+        sport_client_node
+    ])

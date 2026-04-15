@@ -1,0 +1,9 @@
+move:
+  forward_speed: 0.4
+  lateral_speed: 0.3
+  rotate_speed: 0.5
+
+move_timed:
+  forward_time: 3
+  lateral_time: 2
+  rotate_time: 3

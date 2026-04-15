@@ -1,0 +1,50 @@
+main.cpp
+    导航节点
+    ros2 launch b2w_navigation_controller b2w_navigation.launch 
+
+sport_client_example.cpp
+    b2w底盘控制  测试节点
+    ros2 launch b2w_navigation_controller sport_client.launch
+
+sport_state.cpp
+    b2w底层数据获取  测试节点
+
+test_b2w_odom.cpp
+    useless
+
+××××××××××××××××××××××××××××××××××××××××××××××××××××××××××××××
+ros2 run b2w_navigation_controller b2w_nav_node enp2s0 
+
+报错： b2w_nav_no: enp2s0: does not match an available interface. terminate called after throwing an instance of 'unitree::common::DdsException'
+
+原因： enp2s0 没有 UP 状态 和 inet（IPv4 地址），所以失败
+
+临时测试： ros2 run b2w_navigation_controller b2w_nav_node lo
+
+临时测试： ros2 launch b2w_navigation_controller b2w_navigation.launch ，并将launch文件中 arguments=['eth1']改为lo
+
+
+××××××××××××××××××××××××××××××××××××××××××××××××××××××××××××××
+编译后，需执行：
+sudo setcap  cap_net_raw+ep  install/b2w_navigation_controller/lib/b2w_navigation_controller/sport_client_example
+
+ros2 run b2w_navigation_controller sport_client_example eth1 
+
+给b2w_nav_node添加网络权限后报错:error while loading shared libraries: librclcpp.so cannot open shared object file
+这是因为linux的安全机制，一个执行文件被赋予cap_net_raw能力，为了防止库劫持，系统会忽略LD_LIBRARY_PATH环境变量，所以即使source过setup.bash，也不会生效，也找不到/opt/ros/humble/lib/librclcpp.so等ros2库
+
+解决方法：创建.conf文件，包含路径，并更新系统动态库
+echo “/home/test/z1_move_ws/install/z1_arm_cntroller_cpp/lib” | sudo tee /etc/ld.so.conf.d/z1armlib.conf
+echo “/home/test/spray_path_planner_ws/install/spray_path_planner/lib” | sudo tee /etc/ld.so.conf.d/z1armlib.conf
+sudo ldconfig
+
+**************************************************************
+IMU Calibration
+   ↓
+WAITING_FOR_WAYPOINT → 获取第一个 waypoint
+   ↓
+MOVING_FOR_INITIAL_YAW → 向前走一段距离，用位移估算初始 yaw
+   ↓
+ALIGNING_YAW_AFTER_INITIAL_MOVE → 原地旋转，对准目标点方向（PID 控制）
+   ↓
+MOVING_TO_TARGET → 正常导航

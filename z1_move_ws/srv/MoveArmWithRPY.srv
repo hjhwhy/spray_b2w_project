@@ -1,0 +1,7 @@
+# z1_arm_controller_cpp/srv/MoveArmWithRPY.srv
+
+geometry_msgs/Point position      # x, y, z in base_link
+float64[3] rpy                    # [roll, pitch, yaw] in radians
+---
+bool success
+string message
