@@ -24,8 +24,9 @@ include_directories(${EIGEN3_INCLUDE_DIRS})
 include_directories(/usr/local/include/ddscxx)
 include_directories(${EIGEN3_INCLUDE_DIR})
 # --- 设置 Unitree SDK 路径
-set(UNITREE_SDK_ROOT "/home/hjh/unitree_sdk2/install")
+# set(UNITREE_SDK_ROOT "/home/oneko/projects/spray_b2w_robot_project_greek/unitree_sdk2/install")
 #set(UNITREE_IDL_ROOT "/home/hjh/unitree_sdk2/include/unitree")
+set(UNITREE_SDK_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../unitree_sdk2/install")
 # 添加头文件路径（include 在 SDK 根目录）
 include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}
