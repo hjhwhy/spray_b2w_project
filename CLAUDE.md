@@ -28,7 +28,7 @@ cd spray_path_planner_ws && colcon build && source install/setup.bash && cd ..
 # ── Tier 1：依赖 colcon_ws（nmea_msgs） ──
 cd gnss_driver_ws && colcon build && source install/setup.bash && cd ..
 
-# ── Tier 2：依赖 z1_move_ws + spray_path_planner_ws ──
+# ── Tier 2：需要先编译unitree_sdk2，依赖 z1_move_ws + spray_path_planner_ws ──
 cd b2w_navigation_ws && colcon build && source install/setup.bash && cd ..
 
 # ── 无跨工作空间依赖，可任意顺序编译 ──
@@ -51,7 +51,8 @@ cd app_ws && colcon build && source install/setup.bash && cd ..
 cd z1_controller && mkdir -p build && cd build && cmake .. && make
 
 # Unitree SDK2（B2W 四足）
-cd unitree_sdk2 && mkdir -p build && cd build && cmake .. && make
+cd unitree_sdk2 && mkdir -p build && cd build && cmake .. && make 
+make install 
 ```
 
 ### 运行所有节点
