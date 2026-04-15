@@ -12,16 +12,34 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### 编译各工作空间（依赖顺序）
 
+跨工作空间依赖关系：
+- `gnss_driver_ws` 依赖 `colcon_ws`（使用 nmea_msgs 消息类型）
+- `b2w_navigation_ws` 依赖 `z1_move_ws`（使用 MoveArm.srv / MoveArmWithRPY.srv）
+- `b2w_navigation_ws` 依赖 `spray_path_planner_ws`（使用 GetNextWaypoint.srv / SetStartPoint.srv）
+
+每个 `source install/setup.bash` 不可省略，后续工作空间需要通过它发现前面安装的包。
+
 ```bash
-# 1. 先编译基础依赖
+# ── Tier 0：基础消息/服务包（必须最先编译，三者之间无依赖可并行） ──
 cd colcon_ws && colcon build && source install/setup.bash && cd ..
+cd z1_move_ws && colcon build && source install/setup.bash && cd ..
+cd spray_path_planner_ws && colcon build && source install/setup.bash && cd ..
 
-# 2. 编译其他 ROS 工作空间（独立）
-cd <workspace> && colcon build && source install/setup.bash
+# ── Tier 1：依赖 colcon_ws（nmea_msgs） ──
+cd gnss_driver_ws && colcon build && source install/setup.bash && cd ..
 
-# 编译单个包
-colcon build --packages-select <package_name>
+# ── Tier 2：依赖 z1_move_ws + spray_path_planner_ws ──
+cd b2w_navigation_ws && colcon build && source install/setup.bash && cd ..
+
+# ── 无跨工作空间依赖，可任意顺序编译 ──
+cd rtk_nav_ws && colcon build && source install/setup.bash && cd ..
+cd tf_broadcast_ws && colcon build && source install/setup.bash && cd ..
+cd rs585_ws && colcon build && source install/setup.bash && cd ..
+cd robose_airy_ws && colcon build && source install/setup.bash && cd ..
+cd app_ws && colcon build && source install/setup.bash && cd ..
 ```
+
+编译单个包：`colcon build --packages-select <package_name>`
 
 ### 编译外部 SDK（非 ROS）
 
