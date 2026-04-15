@@ -1,3 +1,5 @@
 build/
 install/
+log/
 logs/
+!unitree_sdk2/include/unitree/common/log/
