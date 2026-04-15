@@ -19,7 +19,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   DEPENDENCIES geometry_msgs std_msgs
 )
 # --- 设置 z1_sdk 路径 ---
-set(Z1_SDK_PATH "/home/test/z1_sdk" CACHE PATH "Path to z1_sdk installation")
+set(Z1_SDK_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../z1_sdk" CACHE PATH "Path to z1_sdk installation")
 
 # --- 查找头文件 --- 将 z1_sdk 的 include 目录添加到包含路径
 include_directories(${Z1_SDK_PATH}/include)
