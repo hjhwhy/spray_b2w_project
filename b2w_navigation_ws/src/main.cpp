@@ -293,8 +293,8 @@ private:
         double yaw_ros = get_yaw_from_quaternion(msg->pose.orientation);
         current_yaw_ = yaw_ros;
         double effective_offset = std::abs(RTK_X) ;
-        double base_x = rtk_x + effective_offset * std::sin(current_yaw_);
-        double base_y = rtk_y + effective_offset * std::cos(current_yaw_);
+        double base_x = rtk_x + effective_offset * std::cos(current_yaw_);
+        double base_y = rtk_y + effective_offset * std::sin(current_yaw_);
         
         current_x_ = base_x;
         current_y_ = base_y;
