@@ -399,7 +399,8 @@ private:
             if (ret != 0) {
                 RCLCPP_ERROR(this->get_logger(), "Rotate command failed in ALIGNING_YAW: %d", ret);
             }
-            RCLCPP_INFO(this->get_logger(), "Aligning initial yaw: error=%.3f, vyaw=%.3f", heading_error, yaw_cmd);
+            RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 500, 
+                "Aligning initial yaw: error=%.3f rad (%.1f°), vyaw=%.3f", heading_error, heading_error * 180.0 / M_PI, yaw_cmd);
             break;
         }
         case AVOID_TURNING: {
