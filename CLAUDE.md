@@ -30,6 +30,9 @@ cd gnss_driver_ws && colcon build && source install/setup.bash && cd ..
 
 # ── Tier 2：需要先编译unitree_sdk2，依赖 z1_move_ws + spray_path_planner_ws ──
 cd b2w_navigation_ws && colcon build && source install/setup.bash && cd ..
+# FIX：[b2w_nav_node-1] free(): invalid pointer
+sudo setcap  cap_net_raw+ep  b2w_navigation_ws/install/b2w_navigation_controller/lib/b2w_navigation_controller/b2w_nav_node 
+
 
 # ── 无跨工作空间依赖，可任意顺序编译 ──
 cd rtk_nav_ws && colcon build && source install/setup.bash && cd ..
