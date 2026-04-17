@@ -16,7 +16,6 @@ find_package(tf2_geometry_msgs REQUIRED)
 find_package(z1_arm_controller_cpp REQUIRED)
 find_package(spray_path_planner REQUIRED)
 find_package(std_srvs REQUIRED)
-find_package(yaml-cpp REQUIRED)
 find_package(Eigen3 REQUIRED)
 
 # 包含路径
@@ -39,24 +38,9 @@ link_directories(
 )
 # 添加可执行文件
 add_executable(b2w_nav_node src/main.cpp)
-add_executable(b2w_ekf_nav_node src/main_ekf.cpp)
-add_executable(sport_client_example src/sport_client_example.cpp)
 add_executable(b2w_teleop_node src/b2w_teleop.cpp)
 # 导出依赖
 ament_target_dependencies(b2w_nav_node
-  rclcpp
-  geometry_msgs
-  std_msgs
-  nav_msgs
-  std_srvs
-  z1_arm_controller_cpp
-  spray_path_planner
-  sensor_msgs
-  tf2
-  tf2_geometry_msgs
-)
-
-ament_target_dependencies(b2w_ekf_nav_node
   rclcpp
   geometry_msgs
   std_msgs
@@ -86,20 +70,6 @@ target_link_libraries(b2w_nav_node
   ddscxx
   Eigen3::Eigen
 )
-target_link_libraries(b2w_ekf_nav_node
-  ${CMAKE_THREAD_LIBS_INIT}
-  unitree_sdk2    
-  ddsc 
-  ddscxx
-)
-target_link_libraries(sport_client_example
-  ${CMAKE_THREAD_LIBS_INIT}
-  unitree_sdk2    
-  ddsc 
-  ddscxx
-  yaml-cpp
-)
-
 target_link_libraries(b2w_teleop_node
   ${CMAKE_THREAD_LIBS_INIT}
   unitree_sdk2
@@ -110,14 +80,6 @@ target_link_libraries(b2w_teleop_node
 install(TARGETS b2w_nav_node
   DESTINATION lib/${PROJECT_NAME}
 )
-install(TARGETS b2w_ekf_nav_node
-  DESTINATION lib/${PROJECT_NAME}
-)
-
-install(TARGETS sport_client_example
-  DESTINATION lib/${PROJECT_NAME}
-)
-
 install(TARGETS b2w_teleop_node
   DESTINATION lib/${PROJECT_NAME}
 )
