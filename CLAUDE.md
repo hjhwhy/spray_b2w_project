@@ -38,7 +38,7 @@ sudo setcap  cap_net_raw+ep  b2w_navigation_ws/install/b2w_navigation_controller
 cd rtk_nav_ws && colcon build && source install/setup.bash && cd ..
 cd tf_broadcast_ws && colcon build && source install/setup.bash && cd ..
 cd rs585_ws && colcon build && source install/setup.bash && cd ..
-cd robose_airy_ws && colcon build --cmake-args '-DENABLE_TRANSFORM=ON'  && source install/setup.bash && cd ..
+cd robose_airy_ws && colcon build --cmake-args '-DENABLE_TRANSFORM=ON' --packages-select rslidar_sdk  && source install/setup.bash && cd ..
 cd app_ws && colcon build && source install/setup.bash && cd ..
 ```
 
