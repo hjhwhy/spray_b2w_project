@@ -364,6 +364,12 @@ private:
         {
         if (!has_pending_request_)
         {
+            // 等待 set_start_point 完成后再请求航点，避免路径重排导致重复发送
+            if (!set_start_point_) {
+                RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+                    "Waiting for /set_start_point to complete before requesting waypoints...");
+                return;
+            }
             if (!get_next_waypoint_client_->wait_for_service(std::chrono::seconds(1)))
             {
                 RCLCPP_WARN(this->get_logger(), "Service /get_next_waypoint not available, retrying...");
