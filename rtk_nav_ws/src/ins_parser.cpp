@@ -1,6 +1,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp> 
 #include <geometry_msgs/msg/point_stamped.hpp>
+#include <sensor_msgs/msg/nav_sat_fix.hpp>
 #include <string>
 #include <vector>
 #include <sstream>
@@ -127,6 +128,7 @@ public:
         pub_fix_ = this->create_publisher<geometry_msgs::msg::PointStamped>("fix", 10);
         utm_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("utm_fix", 10);
         epsg_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("epsg_position", 10);
+        gps_pub_ = this->create_publisher<sensor_msgs::msg::NavSatFix>("gps", 10);
 
         RCLCPP_INFO(this->get_logger(), "=== INS Parser Node Started ===");
         RCLCPP_INFO(this->get_logger(), "Port: %s, Baud: %d", port.c_str(), baudrate);
@@ -271,6 +273,7 @@ private:
             // 如果只有 GPGGA 来了，也发布一下 fix 话题用于调试
             if (current_data.gps_qual > 0) {
                 publish_debug_fix();
+                publish_gps();
             }
 
         } catch (const std::exception& e) {
@@ -398,6 +401,37 @@ private:
         msg_fix->point.y = gnss_data_.lat;
         msg_fix->point.z = gnss_data_.alt;
         pub_fix_->publish(std::move(msg_fix));
+    }
+
+    void publish_gps() {
+        std::lock_guard<std::mutex> lock(data_mutex_);
+        auto msg = std::make_unique<sensor_msgs::msg::NavSatFix>();
+        msg->header.stamp = gnss_data_.stamp;
+        msg->header.frame_id = "gps_link";
+        msg->latitude = gnss_data_.lat;
+        msg->longitude = gnss_data_.lon;
+        msg->altitude = gnss_data_.alt;
+
+        switch (gnss_data_.gps_qual) {
+            case 4:  // RTK Fixed
+                msg->status.status = sensor_msgs::msg::NavSatStatus::STATUS_GBAS_FIX;
+                break;
+            case 5:  // RTK Float
+            case 2:  // DGPS
+                msg->status.status = sensor_msgs::msg::NavSatStatus::STATUS_SBAS_FIX;
+                break;
+            case 1:  // GPS Fix
+                msg->status.status = sensor_msgs::msg::NavSatStatus::STATUS_FIX;
+                break;
+            default:
+                msg->status.status = sensor_msgs::msg::NavSatStatus::STATUS_NO_FIX;
+                break;
+        }
+        msg->status.service = sensor_msgs::msg::NavSatStatus::SERVICE_GPS;
+
+        msg->position_covariance_type = sensor_msgs::msg::NavSatFix::COVARIANCE_TYPE_UNKNOWN;
+
+        gps_pub_->publish(std::move(msg));
     }
 
     void publish_utm_pose() {
@@ -559,7 +593,8 @@ private:
 
     rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr pub_fix_;
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr utm_pub_;
-    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr epsg_pub_; 
+    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr epsg_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::NavSatFix>::SharedPtr gps_pub_; 
     
     SerialPort serial_;
     std::thread thread_;
