@@ -127,6 +127,22 @@ public:
         RCLCPP_INFO(this->get_logger(), "B2W Navigation Controller started with Yaw fusion.");
     }
 
+    ~B2WNavigationController() override
+    {
+        RCLCPP_INFO(this->get_logger(), "Shutting down: stopping robot and cleaning up...");
+        // 停止定时器，防止析构期间回调继续触发
+        if (control_timer_) control_timer_->cancel();
+        if (imu_timer_) imu_timer_->cancel();
+        // 发送停止命令给机器人
+        try {
+            sport_client_.Move(0, 0, 0);
+            sport_client_.StandDown();
+        } catch (...) {
+            RCLCPP_WARN(this->get_logger(), "Exception during sport_client cleanup.");
+        }
+        RCLCPP_INFO(this->get_logger(), "Cleanup complete.");
+    }
+
 private:
     sensor_msgs::msg::LaserScan last_scan_;
     bool has_scan_data_ = false;
@@ -803,6 +819,8 @@ int main(int argc, char *argv[])
 
     auto node = std::make_shared<B2WNavigationController>();
     rclcpp::spin(node);
+    // 显式释放节点，触发析构函数中的 sport_client_ 清理
+    node.reset();
     rclcpp::shutdown();
     return 0;
 }
