@@ -284,7 +284,7 @@ private:
     void RtkOdomCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
     {
         // ===== 1. RTK 在 base_link 中的外参 =====
-        constexpr double RTK_X = -0.3485;  // 后方
+        constexpr double RTK_X = -0.4685;  
         constexpr double RTK_Z =  0.3762;
         // ===== 2. 姿态快照（避免回调竞争）=====
         double rtk_x = msg->pose.position.x;
