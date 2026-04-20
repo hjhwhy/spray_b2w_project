@@ -128,6 +128,12 @@ make install
 - B2W 通信通过 DDS（Unitree SDK2），需配置网络接口（eth2 等）
 - Z1 SDK 库为 ARM64 预编译：`z1_sdk/lib/libZ1_SDK_aarch64`
 - Z1 控制器二进制部署路径：`/home/test/z1_controller/build/z1_ctrl`（机器人本机路径）
+- Z1机械臂手动调整并恢复零位方法：  
+  cd /home/test/z1_controller/build/ 
+  ./z1_sdk k 
+  按键盘数字2
+  再按照https://support.unitree.com/home/zh/Z1_developer/keyboard 中的JOINTCTRL 模式，长按键盘直接控制关节运动，直到关节刻度对齐，对齐后ctrl_c 关闭终端
+  断电重启
 
 ## 部署说明
 
