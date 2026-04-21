@@ -35,9 +35,9 @@ public:
     Z1ArmController()
         : Node("z1_arm_controller"),
           arm_(true),
-          max_speed_(1.0)
+          max_speed_(0.5)
     {
-        this->declare_parameter("max_speed", 1.0);
+        this->declare_parameter("max_speed", 0.5);
         this->get_parameter("max_speed", max_speed_);
         //初始化 TF
         tf2_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
