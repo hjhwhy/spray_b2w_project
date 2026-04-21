@@ -84,38 +84,85 @@ make install
 
 ## 关键 ROS 2 话题与服务
 
-**话题（ins_driver_node 发布）**：
-- `/fix` (PointStamped) — 原始 GPS 经纬高调试话题
-- `/utm_fix` (PoseStamped) — UTM 投影坐标 + 航向四元数
-- `/epsg_position` (PoseStamped) — EPSG 2100 投影坐标 + 航向四元数（yaw=0→朝东，yaw=π/2→朝北）
+以下按“代码中真实出现的接口”整理，包含发布、订阅和服务。
 
-**话题（b2w_navigation_controller 发布）**：
-- `/b2w_odom` (Odometry) — B2W 融合里程计（RTK + DDS）
-- `/b2w_path` (Path) — 运行轨迹历史
-- `/imu` (Imu) — B2W IMU 数据（来自 DDS LowState）
-- `/battery` (BatteryState) — B2W 电池状态
-- `/motors_temperatures` (Float32MultiArray) — 电机温度（12 个电机）
+### ROS 2 话题总表
 
-**话题（spray_path_planner 发布）**：
-- `/progress` (Byte) — 作业进度 0-255
-- `/acquired_points` (PointCloud2) — 已完成喷涂点云
-- `/unacquired_points` (PointCloud2) — 待喷涂点云
+| 工作空间 / 节点 | 方向 | 话题名 | 类型 | 说明 |
+|---|---|---|---|---|
+| `rtk_nav_ws / ins_parser_node` | 发布 | `/fix` | `geometry_msgs/msg/PointStamped` | 原始经纬高调试话题，`frame_id=gps_link` |
+| `rtk_nav_ws / ins_parser_node` | 发布 | `/utm_fix` | `geometry_msgs/msg/PoseStamped` | UTM 坐标 + 朝向四元数 |
+| `rtk_nav_ws / ins_parser_node` | 发布 | `/epsg_position` | `geometry_msgs/msg/PoseStamped` | EPSG:2100 坐标 + 朝向四元数，主导航节点当前订阅这个版本 |
+| `rtk_nav_ws / ins_parser_node` | 发布 | `/gps` | `sensor_msgs/msg/NavSatFix` | 标准 GPS 消息 |
+| `rtk_nav_ws / dog_controller` | 订阅 | `/utm_fix` | `geometry_msgs/msg/PoseStamped` | 简化导航测试节点输入 |
+| `rtk_nav_ws / dog_controller` | 订阅 | `/scan` | `sensor_msgs/msg/LaserScan` | 障碍检测 |
+| `rtk_nav_ws / dog_controller` | 发布 | `/cmd_vel` | `geometry_msgs/msg/Twist` | 简化底盘控制输出 |
+| `gnss_driver_ws / gnss_driver` | 发布 | `/nmea_sentence` | `nmea_msgs/msg/Sentence` | 原始 NMEA 报文 |
+| `gnss_driver_ws / gnss_driver` | 发布 | `/gnss_pos` | `sensor_msgs/msg/NavSatFix` | GNSS 定位结果 |
+| `gnss_driver_ws / gnss_driver` | 发布 | `/gnss_yaw` | `sensor_msgs/msg/Imu` | 航向转成的 IMU 姿态消息 |
+| `gnss_driver_ws / gnss_driver` | 发布 | `/utm_position` | `geometry_msgs/msg/PointStamped` | UTM 投影坐标 |
+| `gnss_driver_ws / gnss_driver` | 发布 | `/epsg_position` | `geometry_msgs/msg/PointStamped` | EPSG:2100 坐标，仅点，不含姿态 |
+| `b2w_navigation_ws / b2w_nav_node` | 订阅 | `/epsg_position` | `geometry_msgs/msg/PoseStamped` | 依赖 `ins_parser_node` 发布的 Pose 版本 |
+| `b2w_navigation_ws / b2w_nav_node` | 订阅 | `/scan` | `sensor_msgs/msg/LaserScan` | 激光避障 |
+| `b2w_navigation_ws / b2w_nav_node` | 发布 | `/imu` | `sensor_msgs/msg/Imu` | B2W DDS LowState 转 ROS IMU |
+| `b2w_navigation_ws / b2w_nav_node` | 发布 | `/battery` | `sensor_msgs/msg/BatteryState` | 电量状态 |
+| `b2w_navigation_ws / b2w_nav_node` | 发布 | `/motors_temperatures` | `std_msgs/msg/Float32MultiArray` | 电机温度数组 |
+| `b2w_navigation_ws / b2w_nav_node` | 发布 | `/b2w_odom` | `nav_msgs/msg/Odometry` | 主导航里程计输出 |
+| `b2w_navigation_ws / b2w_nav_node` | 发布 | `/b2w_path` | `nav_msgs/msg/Path` | 运动轨迹历史 |
+| `b2w_navigation_ws / b2w_teleop_node` | 订阅 | `/joy` | `sensor_msgs/msg/Joy` | APP/遥控输入，直接转 Unitree 运动命令 |
+| `spray_path_planner_ws / spray_path_planner_node` | 发布 | `/progress` | `std_msgs/msg/Byte` | 当前实现实际发布 0-100，不是 0-255 |
+| `spray_path_planner_ws / spray_path_planner_node` | 发布 | `/acquired_points` | `sensor_msgs/msg/PointCloud2` | 已完成喷涂点云 |
+| `spray_path_planner_ws / spray_path_planner_node` | 发布 | `/unacquired_points` | `sensor_msgs/msg/PointCloud2` | 未完成喷涂点云 |
+| `z1_move_ws / z1_arm_controller` | 发布 | `/z1_complete` | `std_msgs/msg/Bool` | 机械臂动作/复位完成标志 |
+| `app_ws / remote_control_node` | 发布 | `/remote_command` | `std_msgs/msg/String` | `"start" / "pause" / "stop"` 等命令字符串 |
+| `app_ws / remote_control_node` | 发布 | `/joy` | `sensor_msgs/msg/Joy` | TCP 指令转手动控制 |
+| `app_ws / remote_control_node` | 订阅 | `/progress` | `std_msgs/msg/Byte` | 转发给 TCP 客户端 |
+| `app_ws / remote_control_node` | 订阅 | `/b2w_odom` | `nav_msgs/msg/Odometry` | 转发位置 |
+| `app_ws / remote_control_node` | 订阅 | `/motors_temperatures` | `std_msgs/msg/Float32MultiArray` | 转发最高温度 |
+| `app_ws / remote_control_node` | 订阅 | `/b2w_path` | `nav_msgs/msg/Path` | 转发轨迹 |
+| `app_ws / remote_control_node` | 订阅 | `/acquired_points` | `sensor_msgs/msg/PointCloud2` | 转发已喷涂点云 |
+| `app_ws / remote_control_node` | 订阅 | `/unacquired_points` | `sensor_msgs/msg/PointCloud2` | 转发未喷涂点云 |
+| `robose_airy_ws / rslidar_sdk` | 发布 | `/scan` | `sensor_msgs/msg/LaserScan` | 当前仓库中被导航和 `dog_controller` 使用 |
+| `tf_broadcast_ws / robot_state_publisher` | 发布 | `/tf` | `tf2_msgs/msg/TFMessage` | 标准 `robot_state_publisher` 动态 TF 输出 |
+| `tf_broadcast_ws / robot_state_publisher` | 发布 | `/tf_static` | `tf2_msgs/msg/TFMessage` | 标准静态 TF 输出 |
 
-**话题（app_ws 发布）**：
-- `/remote_command` (String) — 遥控命令字符串（"start"/"pause"/"stop"）
-- `/joy` (Joy) — 方向控制摇杆消息（axes[0]=左右平移, axes[1]=前后, axes[2]=旋转）
+### ROS 2 服务总表
 
-**自定义服务**：
-- `/get_next_waypoint` (GetNextWaypoint) — 请求下一个喷涂点（spray_path_planner 提供）
-- `/set_start_point` (SetStartPoint) — 设置起始点（spray_path_planner 提供）
-- `/z1_move_to_target` (MoveArm) — 移动机械臂到笛卡尔坐标（z1_arm_controller 提供）
-- `/z1_reset_arm` (MoveArm) — 复位机械臂（z1_arm_controller 提供）
-- `/trigger_valve_ch1` (Trigger) — 触发 RS485 继电器通道1（喷枪，rs485_node 提供）
-- `/trigger_valve_ch2` (Trigger) — 触发 RS485 继电器通道2（rs485_node 提供）
-- `/emergency_stop` (Trigger) — 紧急停止（b2w_navigation_controller 提供）
-- `/erase_emergency_stop` (Trigger) — 解除紧急停止（b2w_navigation_controller 提供）
+| 工作空间 / 节点 | 方向 | 服务名 | 类型 | 说明 |
+|---|---|---|---|---|
+| `spray_path_planner_ws / spray_path_planner_node` | 提供 | `/get_next_waypoint` | `spray_path_planner/srv/GetNextWaypoint` | 依次返回下一个喷涂点 |
+| `spray_path_planner_ws / spray_path_planner_node` | 提供 | `/set_start_point` | `spray_path_planner/srv/SetStartPoint` | 根据起点重排喷涂路径 |
+| `z1_move_ws / z1_arm_controller` | 提供 | `/z1_move_to_target` | `z1_arm_controller_cpp/srv/MoveArm` | 直接按目标位姿控制 Z1 |
+| `z1_move_ws / z1_arm_controller` | 提供 | `/z1_reset_arm` | `z1_arm_controller_cpp/srv/MoveArm` | 机械臂复位 |
+| `z1_move_ws / z1_arm_controller` | 提供 | `/z1_move_in_base_frame` | `z1_arm_controller_cpp/srv/MoveArmWithRPY` | 输入 `base_link` 坐标，内部转到 `z1_base` |
+| `rs585_ws / relay_control_node` | 提供 | `/trigger_valve_ch1` | `std_srvs/srv/Trigger` | 触发 CH1 电磁阀 |
+| `rs585_ws / relay_control_node` | 提供 | `/trigger_pump_ch2` | `std_srvs/srv/Trigger` | 触发 CH2 水泵 |
+| `gnss_driver_ws / gnss_driver` | 提供 | `/save_utm_point` | `std_srvs/srv/Trigger` | 将当前点写入 waypoint 文件 |
+| `app_ws / remote_control_node` | 调用 | `/emergency_stop` | `std_srvs/srv/Trigger` | APP 暂停时调用；当前仓库里未找到服务提供者实现 |
+| `app_ws / remote_control_node` | 调用 | `/erase_emergency_stop` | `std_srvs/srv/Trigger` | APP 恢复时调用；当前仓库里未找到服务提供者实现 |
+| `b2w_navigation_ws / b2w_nav_node` | 调用 | `/set_start_point` | `spray_path_planner/srv/SetStartPoint` | 初始化时设置起点 |
+| `b2w_navigation_ws / b2w_nav_node` | 调用 | `/get_next_waypoint` | `spray_path_planner/srv/GetNextWaypoint` | 获取下一个喷涂目标 |
+| `b2w_navigation_ws / b2w_nav_node` | 调用 | `/z1_move_to_target` | `z1_arm_controller_cpp/srv/MoveArm` | 调机械臂执行喷涂位姿 |
+| `b2w_navigation_ws / b2w_nav_node` | 调用 | `/z1_reset_arm` | `z1_arm_controller_cpp/srv/MoveArm` | 喷涂完成后复位 |
+| `b2w_navigation_ws / b2w_nav_node` | 调用 | `/trigger_valve_ch1` | `std_srvs/srv/Trigger` | 喷枪触发 |
 
-**服务消息类型定义**：
+### 非 ROS 通道
+
+| 接口 | 类型 | 用途 |
+|---|---|---|
+| `rt/lowstate` | Unitree DDS topic | `b2w_nav_node` 订阅底盘低层状态，不是 ROS 2 话题 |
+
+### 接口注意事项
+
+- `/epsg_position` 在仓库里有两种实现：
+  - `rtk_nav_ws/ins_parser.cpp` 发布 `geometry_msgs/msg/PoseStamped`
+  - `gnss_driver_ws/pub_rtk_save_pt_node.cpp` 发布 `geometry_msgs/msg/PointStamped`
+- 当前主导航 `b2w_navigation_ws/src/main.cpp` 订阅的是 `PoseStamped` 版本，因此运行主流程时应优先启动 `rtk_nav_ws` 的 `ins_parser_node`。
+- `spray_path_planner` 当前 `/progress` 实际发布的是 `0~100` 百分比整数；如果 APP 协议仍按 `0~255` 处理，需要后续统一。
+- `app_ws` 中确实存在 `/emergency_stop` 和 `/erase_emergency_stop` 客户端，但当前仓库源码里没有找到对应服务端实现。
+
+### 自定义服务消息类型定义
+
 - `spray_path_planner/GetNextWaypoint.srv`
 - `spray_path_planner/SetStartPoint.srv`
 - `z1_arm_controller_cpp/MoveArm.srv`
@@ -148,7 +195,7 @@ make install
 - `b2w_navigation_ws/src/main_ekf.cpp` — EKF 融合版本（约 1041 行）
 - `b2w_navigation_ws/src/b2w_teleop.cpp` — 遥控/手动控制逻辑
 - `app_ws/src/app_node.cpp` — TCP 通信协议实现（约 533 行）
-- `rtk_nav_ws/src/ins_parser.cpp` — 司南 RTK 串口解析与坐标投影（发布 /fix、/utm_fix、/epsg_position）
+- `rtk_nav_ws/src/ins_parser.cpp` — 司南 RTK 串口解析与坐标投影（发布 /fix、/utm_fix、/epsg_position、/gps）
 - `rtk_nav_ws/src/dog_controller.cpp` — 遥控手柄控制辅助
 - `z1_move_ws/src/z1_arm_controller_node.cpp` — Z1 控制节点
 - `spray_path_planner_ws/src/spray_path_planner_node.cpp` — 路径规划
@@ -197,4 +244,4 @@ APP ↔ 主控通过 TCP 长连接通信：
 
 - 使用 EPSG 2100（希腊 GGRS87 / Greek Grid）投影
 - 使用 `proj` 库进行 WGS84 ↔ EPSG2100 转换
-- TF 树：`base_link` → `z1_base` → `rslidar` → `gnss_antenna`
+- 当前 URDF 中的固定链路：`base_link` → `z1_base`，`base_link` → `lidar_link`，`base_link` → `rtk_link`
