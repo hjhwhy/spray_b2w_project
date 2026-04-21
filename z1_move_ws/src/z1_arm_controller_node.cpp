@@ -176,6 +176,8 @@ private:
         try {
             Vec6 target_pose;
             target_pose << roll, pitch, yaw, x, y, z;
+            arm_.setFsm(ArmFSMState::JOINTCTRL);
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
             arm_.labelRun("forward");
             bool move_success = arm_.MoveJ(target_pose, gripper_pos, max_speed_);
             if (!move_success) {
