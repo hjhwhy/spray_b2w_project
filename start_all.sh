@@ -52,7 +52,7 @@ sleep 1
 
 echo "启动 z1_ctrl 程序..."
 cd /home/test/z1_controller/build/
-./z1_ctrl &
+./z1_ctrl > /home/test/logs/z1_ctrl.log 2>&1 &
 PIDS+=($!)
 sleep 1
 
