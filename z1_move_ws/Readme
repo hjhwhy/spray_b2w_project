@@ -6,8 +6,15 @@ step2:
 ros2 run z1_arm_controller_cpp z1_arm_controller_node
 
 ***********************************
-test:
-ros2 service call /z1_move_in_base_frame z1_arm_controller_cpp/srv/MoveArmWithRPY "{position: {x: 0.8, y: 0.2, z: 0.0}, rpy: [0.0, 1.5708, 0.0]}"
+手动测试机械臂方法：
 
-ros2 service call /z1_reset_arm z1_arm_controller_cpp/srv/MoveArm "{}"
+ros2 launch robot_tf_broadcaster tf_publisher.launch
 
+./z1_ctrl 
+
+ros2 run z1_arm_controller_cpp z1_arm_controller_node
+
+ros2 service call  /z1_move_to_target  z1_arm_controller_cpp/srv/MoveArm "{target_pose: {position: {x: 0.424, y: -0.053, z: 0.0}, orientation: {x: 0.0, y: 0.7071, z: 0.0, w: 0.7071}}}"
+
+
+ros2  service call /z1_reset_arm  z1_arm_controller_cpp/srv/MoveArm "{}"
