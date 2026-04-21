@@ -31,7 +31,7 @@ class RemoteControlNode : public rclcpp::Node
 public:
     RemoteControlNode()
     : Node("remote_control_node") {
-        this->declare_parameter<int>("listen_port", 8080);
+        this->declare_parameter<int>("listen_port", 9002);
         int port = this->get_parameter("listen_port").as_int();
         std::string home = std::getenv("HOME");
         std::string file_path = home + "/gnss_waypoints.txt";
