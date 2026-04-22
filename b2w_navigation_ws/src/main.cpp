@@ -53,7 +53,9 @@ public:
         this->declare_parameter("heading_alignment_threshold", 0.2); // 弧度，约10.14度
         this->declare_parameter("z1_arm_end_height", 0.0);
         this->declare_parameter("arrive_distance", 0.8);
-        this->declare_parameter("avoid_distance", 1.0);
+        this->declare_parameter("min_distance_for_arm_task", 0.6);
+        this->declare_parameter("reposition_back_distance", 0.35);
+        this->declare_parameter("avoid_distance", 0.8);
         this->declare_parameter<double>("obstacle_detection_range", 1.2); 
         this->declare_parameter("arm_offset_x", 0.3487);
         this->declare_parameter("rtk_hz", 10); //hz
@@ -65,6 +67,8 @@ public:
         this->get_parameter("moving_to_target_forward_speed", moving_to_target_forward_speed_);
         this->get_parameter("z1_arm_end_height", z1_arm_end_height_);
         this->get_parameter("arrive_distance", arrive_distance_);
+        this->get_parameter("min_distance_for_arm_task", min_distance_for_arm_task_);
+        this->get_parameter("reposition_back_distance", reposition_back_distance_);
         this->get_parameter("avoid_distance", avoid_dist_);
         this->get_parameter("obstacle_detection_range", obs_range_);
         this->get_parameter("arm_offset_x", arm_offset_x_);
@@ -78,6 +82,8 @@ public:
         RCLCPP_INFO(this->get_logger(), " moving_to_target_forward_speed: %.3f m/s", moving_to_target_forward_speed_);
         RCLCPP_INFO(this->get_logger(), " z1_arm_end_height: %.3f m", z1_arm_end_height_);
         RCLCPP_INFO(this->get_logger(), " arrive_distance: %.3f m", arrive_distance_);
+        RCLCPP_INFO(this->get_logger(), " min_distance_for_arm_task: %.3f m", min_distance_for_arm_task_);
+        RCLCPP_INFO(this->get_logger(), " reposition_back_distance: %.3f m", reposition_back_distance_);
         RCLCPP_INFO(this->get_logger(), " avoid_distance: %.3f m", avoid_dist_);
         RCLCPP_INFO(this->get_logger(), " arm_offset_x: %.4f m", arm_offset_x_);
         RCLCPP_INFO(this->get_logger(), "rtk_hz: %d", rtk_hz_);
@@ -463,6 +469,16 @@ private:
                 break; 
             }
             if (distance_to_target <= arrive_distance_) {
+                if (distance_to_target < min_distance_for_arm_task_) {
+                    RCLCPP_WARN(this->get_logger(),
+                        "Too close to waypoint for arm task (dist=%.4f m < %.4f m). Backing up to reposition.",
+                        distance_to_target, min_distance_for_arm_task_);
+                    reposition_start_x_ = current_x_;
+                    reposition_start_y_ = current_y_;
+                    sport_client_.Move(0, 0, 0);
+                    state_ = REPOSITIONING_BACKWARD;
+                    return;
+                }
                 RCLCPP_INFO(this->get_logger(), "=========================================");
                 RCLCPP_INFO(this->get_logger(), "✅ WAYPOINT REACHED");
                 RCLCPP_INFO(this->get_logger(), "Target Pos (Local): (%.4f, %.4f)", target_x_, target_y_);
@@ -515,6 +531,24 @@ private:
             moving_ = (ret == 0);
             RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000, 
                 "Moving: Target=(%.2f,%.2f) Dist=%.2f YawErr=%.2f vyaw=%.2f", target_x_, target_y_, distance_to_target, heading_error, yaw_cmd);
+            break;
+        }
+
+        case REPOSITIONING_BACKWARD:
+        {
+            const double dx = current_x_ - reposition_start_x_;
+            const double dy = current_y_ - reposition_start_y_;
+            const double moved = std::hypot(dx, dy);
+            if (moved >= reposition_back_distance_) {
+                sport_client_.Move(0, 0, 0);
+                RCLCPP_INFO(this->get_logger(),
+                    "Reposition back complete (%.3f m). Realigning toward waypoint.", moved);
+                state_ = ALIGNING_YAW;
+                break;
+            }
+            sport_client_.Move(-0.25, 0.0, 0.0);
+            RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 500,
+                "Repositioning backward: %.3f / %.3f m", moved, reposition_back_distance_);
             break;
         }
 
@@ -721,6 +755,7 @@ private:
         WAITING_FOR_WAYPOINT,
         ALIGNING_YAW,
         MOVING_TO_TARGET,
+        REPOSITIONING_BACKWARD,
         WAITING_FOR_FRESH_RTK,
         AVOID_TURNING,
         AVOID_MOVING,
@@ -770,6 +805,7 @@ private:
 
     // 位置信息
     double current_x_ = NAN, current_y_ = NAN, current_z_ = NAN, avoid_start_x_ = NAN, avoid_start_y_ = NAN;
+    double reposition_start_x_ = NAN, reposition_start_y_ = NAN;
     double target_x_ = 0.0, target_y_ = 0.0;
     double current_vx_ = 0.0, current_vy_ = 0.0;
     double last_dx_local_ = 0.0;
@@ -781,6 +817,8 @@ private:
     double heading_alignment_threshold_, moving_to_target_forward_speed_;
     double z1_arm_end_height_;
     double arrive_distance_;
+    double min_distance_for_arm_task_;
+    double reposition_back_distance_;
     double avoid_dist_, obs_range_;
     double arm_offset_x_;
     int rtk_hz_;
