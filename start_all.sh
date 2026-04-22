@@ -6,8 +6,17 @@ cleanup() {
     echo "正在关闭所有节点..."
 
     for pid in "${PIDS[@]}"; do
-        echo "关闭 PID: $pid"
-        kill $pid 2>/dev/null
+        echo "发送 SIGINT 到 PID: $pid"
+        kill -INT "$pid" 2>/dev/null
+    done
+
+    sleep 1
+
+    for pid in "${PIDS[@]}"; do
+        if kill -0 "$pid" 2>/dev/null; then
+            echo "发送 SIGTERM 到 PID: $pid"
+            kill -TERM "$pid" 2>/dev/null
+        fi
     done
 
     echo "全部已关闭。"
