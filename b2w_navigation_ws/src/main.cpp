@@ -337,7 +337,7 @@ private:
                 }
             });
         }
-    
+        ++rtk_update_seq_;
         last_rtk_update_time_ = this->now();
     }
 
@@ -470,7 +470,8 @@ private:
                 RCLCPP_INFO(this->get_logger(), "Actual Yaw:         %.2f°", current_yaw_ * 180.0 / M_PI);
                 RCLCPP_INFO(this->get_logger(), "Distance Error:     %.4f m", distance_to_target);
                 RCLCPP_INFO(this->get_logger(), "=========================================");
-                state_ = EXECUTING_ARM_TASK;
+                arm_wait_rtk_seq_ = rtk_update_seq_;
+                state_ = WAITING_FOR_FRESH_RTK;
                 sport_client_.Move(0, 0, 0); 
                 return; 
             }
@@ -515,6 +516,19 @@ private:
             RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000, 
                 "Moving: Target=(%.2f,%.2f) Dist=%.2f YawErr=%.2f vyaw=%.2f", target_x_, target_y_, distance_to_target, heading_error, yaw_cmd);
             break;
+        }
+
+        case WAITING_FOR_FRESH_RTK:
+        {
+            sport_client_.Move(0, 0, 0);
+            if (rtk_update_seq_ <= arm_wait_rtk_seq_) {
+                RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 500,
+                    "Waypoint reached. Waiting for one fresh RTK frame before arm task...");
+                return;
+            }
+            RCLCPP_INFO(this->get_logger(), "Fresh RTK frame received. Start arm task.");
+            state_ = EXECUTING_ARM_TASK;
+            return;
         }
 
         case EXECUTING_ARM_TASK:
@@ -707,6 +721,7 @@ private:
         WAITING_FOR_WAYPOINT,
         ALIGNING_YAW,
         MOVING_TO_TARGET,
+        WAITING_FOR_FRESH_RTK,
         AVOID_TURNING,
         AVOID_MOVING,
         EXECUTING_ARM_TASK,
@@ -775,6 +790,8 @@ private:
     // 存储上一次回调的时间，用于计算时间间隔
     rclcpp::Time last_time_;
     rclcpp::Time last_rtk_update_time_;
+    uint64_t rtk_update_seq_ = 0;
+    uint64_t arm_wait_rtk_seq_ = 0;
 
     void PublishOdom()
     {
