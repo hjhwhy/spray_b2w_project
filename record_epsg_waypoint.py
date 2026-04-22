@@ -10,9 +10,8 @@ from rclpy.node import Node
 
 
 def format_coord(value: float) -> str:
-    text = f"{value:.3f}"
-    text = text.rstrip("0").rstrip(".")
-    return text if text else "0"
+    # Keep near-raw precision from float instead of truncating to 3 decimals.
+    return format(value, ".16g")
 
 
 def get_next_point_index(file_path: Path) -> int:
