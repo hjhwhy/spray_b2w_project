@@ -300,7 +300,7 @@ private:
     void RtkOdomCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
     {
         // ===== 1. RTK 在 base_link 中的外参 =====
-        constexpr double RTK_X = -0.4685;  
+        constexpr double RTK_X = -0.4477;  
         constexpr double RTK_Z =  0.3762;
         // ===== 2. 姿态快照（避免回调竞争）=====
         double rtk_x = msg->pose.position.x;
@@ -320,7 +320,7 @@ private:
             RCLCPP_ERROR(this->get_logger(), "调用 /set_start_point 服务");
             request->start.x = current_x_;
             request->start.y = current_y_;
-            request->start.z =  msg->pose.position.x;
+            request->start.z =  current_z_;
             auto result_future = set_start_point_client_->async_send_request(
                 request,
                 [this](rclcpp::Client<spray_path_planner::srv::SetStartPoint>::SharedFuture future) {
