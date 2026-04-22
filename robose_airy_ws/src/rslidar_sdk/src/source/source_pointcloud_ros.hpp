@@ -286,7 +286,7 @@ inline sensor_msgs::msg::LaserScan toLaserScanMsg(
     const double angle_max = M_PI;         // +180°
     const size_t scan_size = 180;          // 0.5° 分辨率
     const double z_min = -0.18;             
-    const double z_max = 0.1;
+    const double z_max = 0.06;
     const float range_min = 0.3f;
     const float range_max = 5.0f;
     const float scan_time = 0.1f;          // 假设 10 Hz
