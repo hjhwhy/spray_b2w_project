@@ -71,6 +71,20 @@ ros2 launch rslidar_sdk start.py &
 PIDS+=($!)
 sleep 1
 
+echo "启动 app 通讯"
+ros2 run robot_tcp robot_tcp_node &
+PIDS+=($!)
+sleep 1
+
+echo "启动 app 底盘遥控"
+ros2 run b2w_navigation_controller b2w_teleop_node eth1 &
+PIDS+=($!)
+sleep 1
+
+echo "启动 b2w 主控节点"
+ros2 launch b2w_navigation_controller b2w_navigation.launch > logs/b2w_navigation.log 2>&1 &
+PIDS+=($!)
+sleep 1
 
 echo "所有节点已启动！"
 wait
