@@ -54,11 +54,6 @@ ros2 run ins_driver_node ins_parser --ros-args -p port:=/dev/ttyTHS2 -p baudrate
 PIDS+=($!)
 sleep 1
 
-echo "启动 path_planner..."
-ros2 launch spray_path_planner path_planner.launch.py > logs/path_planner.log 2>&1 &
-PIDS+=($!)
-sleep 1
-
 echo "启动 z1_ctrl 程序..."
 cd /home/test/z1_controller/build/
 ./z1_ctrl > /home/test/logs/z1_ctrl.log 2>&1 &
@@ -76,10 +71,6 @@ ros2 launch rslidar_sdk start.py &
 PIDS+=($!)
 sleep 1
 
-echo "记录轨迹"
-ros2 bag record /b2w_odom &
-PIDS+=($!)
-sleep 1
 
 echo "所有节点已启动！"
 wait

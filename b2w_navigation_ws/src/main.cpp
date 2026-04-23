@@ -5,6 +5,9 @@
 #include <algorithm>
 #include <cmath>
 #include <memory>
+#include <sstream>
+#include <string>
+#include <vector>
 #include <rclcpp/rclcpp.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <geometry_msgs/msg/pose.hpp>
@@ -17,8 +20,6 @@
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include "z1_arm_controller_cpp/srv/move_arm.hpp"  
-#include "spray_path_planner/srv/get_next_waypoint.hpp"     
-#include "spray_path_planner/srv/set_start_point.hpp"
 #include <unitree/idl/go2/LowState_.hpp>
 #include <unitree/robot/channel/channel_factory.hpp>
 #include <unitree/robot/channel/channel_subscriber.hpp>
@@ -43,6 +44,13 @@ using namespace std::chrono_literals;
 class B2WNavigationController : public rclcpp::Node
 {
 public:
+    struct Waypoint {
+        std::string id;
+        double x;
+        double y;
+        double z;
+    };
+
     explicit B2WNavigationController()
         : Node("b2w_navigation_controller"),
           moving_(false), state_(WAITING_FOR_WAYPOINT),
@@ -62,6 +70,7 @@ public:
         this->declare_parameter("distance_to_slow_down", 2.5);
         this->declare_parameter("min_useful_vyaw", 0.4);
         this->declare_parameter("max_vyaw", 0.6);
+        this->declare_parameter("waypoint_file_path", std::string("gnss_waypoints.txt"));
         
         this->get_parameter("heading_alignment_threshold", heading_alignment_threshold_);
         this->get_parameter("moving_to_target_forward_speed", moving_to_target_forward_speed_);
@@ -76,6 +85,13 @@ public:
         this->get_parameter("distance_to_slow_down", distance_to_slow_down_);
         this->get_parameter("min_useful_vyaw", min_useful_vyaw_);
         this->get_parameter("max_vyaw", max_vyaw_);
+        this->get_parameter("waypoint_file_path", waypoint_file_path_);
+
+        if (!LoadWaypointsFromFile(waypoint_file_path_)) {
+            RCLCPP_FATAL(this->get_logger(), "Failed to load waypoints. Check waypoint_file_path: %s", waypoint_file_path_.c_str());
+            rclcpp::shutdown();
+            return;
+        }
 
         RCLCPP_INFO(this->get_logger(), "Loaded parameters:");
         RCLCPP_INFO(this->get_logger(), "  heading_alignment_threshold: %.3f rad", heading_alignment_threshold_);
@@ -90,6 +106,7 @@ public:
         RCLCPP_INFO(this->get_logger(), "distance_to_slow_down: %.3f", distance_to_slow_down_);
         RCLCPP_INFO(this->get_logger(), "min_useful_vyaw: %.3f", min_useful_vyaw_);
         RCLCPP_INFO(this->get_logger(), "max_vyaw: %.3f", max_vyaw_);
+        RCLCPP_INFO(this->get_logger(), "waypoint_file_path: %s", waypoint_file_path_.c_str());
 
         current_vx_ = 0.0;
         current_vy_ = 0.0;
@@ -112,10 +129,6 @@ public:
         lowstate_subscriber_.reset(new ChannelSubscriber<unitree_go::msg::dds_::LowState_>(TOPIC_LOWSTATE));
         lowstate_subscriber_->InitChannel(std::bind(&B2WNavigationController::channel_callback, 
             this, std::placeholders::_1), 1);
-        //对坐标点进行排序
-        set_start_point_client_ = this->create_client<spray_path_planner::srv::SetStartPoint>("/set_start_point");
-
-        get_next_waypoint_client_ = this->create_client<spray_path_planner::srv::GetNextWaypoint>("/get_next_waypoint");
         z1_move_to_target_client_ = this->create_client<z1_arm_controller_cpp::srv::MoveArm>("/z1_move_to_target");
         trigger_relay_client_ = this->create_client<std_srvs::srv::Trigger>("/trigger_valve_ch1");
         z1_reset_arm_client_ = this->create_client<z1_arm_controller_cpp::srv::MoveArm>("/z1_reset_arm");
@@ -320,29 +333,6 @@ private:
         
         current_x_ = base_x;
         current_y_ = base_y;
-        // 创建请求--传入起点来排序路径--spray_path_planner
-        if (!set_start_point_) {
-            auto request = std::make_shared<spray_path_planner::srv::SetStartPoint::Request>();
-            RCLCPP_ERROR(this->get_logger(), "调用 /set_start_point 服务");
-            request->start.x = current_x_;
-            request->start.y = current_y_;
-            request->start.z =  current_z_;
-            auto result_future = set_start_point_client_->async_send_request(
-                request,
-                [this](rclcpp::Client<spray_path_planner::srv::SetStartPoint>::SharedFuture future) {
-                try {
-                    auto response = future.get();
-                    if (response->success) {
-                        RCLCPP_INFO(this->get_logger(), "成功设置起始点: %s", response->message.c_str());
-                        set_start_point_ = true;
-                    } else {
-                        RCLCPP_WARN(this->get_logger(), "设置起始点失败: %s", response->message.c_str());
-                    }
-                } catch (const std::exception &e) {
-                    RCLCPP_ERROR(this->get_logger(), "调用 /set_start_point 服务时发生异常: %s", e.what());
-                }
-            });
-        }
         ++rtk_update_seq_;
         last_rtk_update_time_ = this->now();
     }
@@ -368,45 +358,20 @@ private:
         {
         case WAITING_FOR_WAYPOINT:
         {
-        if (!has_pending_request_)
-        {
-            // 等待 set_start_point 完成后再请求航点，避免路径重排导致重复发送
-            if (!set_start_point_) {
-                RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
-                    "Waiting for /set_start_point to complete before requesting waypoints...");
-                return;
-            }
-            if (!get_next_waypoint_client_->wait_for_service(std::chrono::seconds(1)))
-            {
-                RCLCPP_WARN(this->get_logger(), "Service /get_next_waypoint not available, retrying...");
-                return;
-            }
-            auto request = std::make_shared<spray_path_planner::srv::GetNextWaypoint::Request>();
-            auto future_and_request_id = get_next_waypoint_client_->async_send_request(request);
-            get_next_waypoint_future_ = future_and_request_id.future.share();
-            has_pending_request_ = true;
-            RCLCPP_INFO(this->get_logger(), "Sent request for next waypoint.");
-            return; // 不再继续处理，等下次循环检查结果
-        }
-        if (get_next_waypoint_future_.valid() && 
-            get_next_waypoint_future_.wait_for(std::chrono::milliseconds(0)) == std::future_status::ready)
-        {
-            auto result = get_next_waypoint_future_.get();
-            has_pending_request_ = false; // 清除标记
-            if (result->success)
-            {
-                target_x_ = result->waypoint.x;
-                target_y_ = result->waypoint.y;
-                RCLCPP_INFO(this->get_logger(), "Received next waypoint: (%.2f, %.2f)", target_x_, target_y_);
-                state_ = ALIGNING_YAW;
-                RCLCPP_INFO(this->get_logger(), "Waypoint received. Aligning yaw before moving to target.");
-                moving_ = false;
-            } else {
-                RCLCPP_INFO(this->get_logger(), "No more waypoints: %s", result->message.c_str());
-                sport_client_.Move(0, 0, 0); // 停止
+            if (current_waypoint_index_ >= waypoints_.size()) {
+                RCLCPP_INFO(this->get_logger(), "No more waypoints from local file.");
+                sport_client_.Move(0, 0, 0);
                 state_ = FINISH_ALL_POINTS;
+                break;
             }
-        }
+
+            const auto &next = waypoints_[current_waypoint_index_++];
+            target_x_ = next.x;
+            target_y_ = next.y;
+            RCLCPP_INFO(this->get_logger(), "Received next waypoint: (%.2f, %.2f)", target_x_, target_y_);
+            state_ = ALIGNING_YAW;
+            RCLCPP_INFO(this->get_logger(), "Waypoint received. Aligning yaw before moving to target.");
+            moving_ = false;
             break;
         }
 
@@ -609,7 +574,7 @@ private:
                 // 可选：设置末端朝向（例如让夹爪垂直向下）
                 // 使用四元数表示：绕 Y 轴旋转 90 度
                 tf2::Quaternion q;
-                q.setRPY(0, M_PI/2, 0); // 举例：让末端Z轴朝下
+                q.setRPY(0, 83.0 * M_PI / 180.0, 0); // 经测试，机械臂末端平面朝下的角度为83度
                 request->target_pose.orientation = tf2::toMsg(q);
                 /*request->target_pose.orientation.w = 0.9004;
                 request->target_pose.orientation.x = 0.0;
@@ -751,6 +716,78 @@ private:
 
 
 private:
+    bool ParseWaypointsFile(const std::string& file_path, std::vector<Waypoint>& output)
+    {
+        std::ifstream file(file_path);
+        if (!file.is_open()) {
+            return false;
+        }
+
+        std::string line;
+        int line_num = 0;
+        while (std::getline(file, line)) {
+            ++line_num;
+            if (line.empty() || line[0] == '#') {
+                continue;
+            }
+
+            std::stringstream ss(line);
+            std::string id;
+            std::string x_str;
+            std::string y_str;
+            std::string z_str;
+            if (!(std::getline(ss, id, ',') &&
+                  std::getline(ss, x_str, ',') &&
+                  std::getline(ss, y_str, ',') &&
+                  std::getline(ss, z_str, ','))) {
+                RCLCPP_WARN(this->get_logger(), "Invalid waypoint line %d: %s", line_num, line.c_str());
+                continue;
+            }
+
+            try {
+                Waypoint p;
+                p.id = id;
+                p.x = std::stod(x_str);
+                p.y = std::stod(y_str);
+                p.z = std::stod(z_str);
+                output.push_back(p);
+            } catch (...) {
+                RCLCPP_WARN(this->get_logger(), "Failed to parse waypoint line %d: %s", line_num, line.c_str());
+            }
+        }
+        return !output.empty();
+    }
+
+    bool LoadWaypointsFromFile(const std::string& configured_path)
+    {
+        std::vector<std::string> candidates;
+        candidates.push_back(configured_path);
+        if (std::filesystem::path(configured_path).is_relative()) {
+            candidates.push_back((std::filesystem::current_path() / configured_path).string());
+        }
+
+        std::vector<Waypoint> parsed;
+        std::string used_path;
+        for (const auto& candidate : candidates) {
+            parsed.clear();
+            if (ParseWaypointsFile(candidate, parsed)) {
+                used_path = candidate;
+                break;
+            }
+        }
+
+        if (parsed.empty()) {
+            RCLCPP_ERROR(this->get_logger(), "Unable to load waypoints from path: %s", configured_path.c_str());
+            return false;
+        }
+
+        waypoints_ = parsed;
+        current_waypoint_index_ = 0;
+        RCLCPP_INFO(this->get_logger(), "Loaded %zu waypoints from %s in file order", waypoints_.size(), used_path.c_str());
+        return true;
+    }
+
+private:
     enum State {
         WAITING_FOR_WAYPOINT,
         ALIGNING_YAW,
@@ -780,11 +817,9 @@ private:
     nav_msgs::msg::Path path_msg_;
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
 
-    rclcpp::Client<spray_path_planner::srv::GetNextWaypoint>::SharedPtr get_next_waypoint_client_;
-    rclcpp::Client<spray_path_planner::srv::SetStartPoint>::SharedPtr set_start_point_client_;
-    bool set_start_point_ = false;
-    std::shared_future<spray_path_planner::srv::GetNextWaypoint::Response::SharedPtr> get_next_waypoint_future_;
-    bool has_pending_request_ = false; // 标记是否有未完成的请求
+    std::string waypoint_file_path_;
+    std::vector<Waypoint> waypoints_;
+    size_t current_waypoint_index_ = 0;
 
     rclcpp::Client<z1_arm_controller_cpp::srv::MoveArm>::SharedPtr z1_move_to_target_client_;
     rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr trigger_relay_client_;
