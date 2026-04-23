@@ -16,5 +16,26 @@ ros2 run z1_arm_controller_cpp z1_arm_controller_node
 
 ros2 service call  /z1_move_to_target  z1_arm_controller_cpp/srv/MoveArm "{target_pose: {position: {x: 0.424, y: -0.053, z: 0.0}, orientation: {x: 0.0, y: 0.7071, z: 0.0, w: 0.7071}}}"
 
+手动微调 pitch 角：
+
+先只生成命令，不直接发送：
+
+python3 manual_test_pose.py --x 0.424 --y -0.053 --z 0.0 --pitch 90
+
+直接发送服务请求：
+
+python3 manual_test_pose.py --x 0.424 --y -0.053 --z 0.0 --pitch 88 --send
+
+连续微调 pitch 时，建议先试这几组：
+
+python3 manual_test_pose.py --x 0.424 --y -0.053 --z 0.0 --pitch 92 --send
+python3 manual_test_pose.py --x 0.424 --y -0.053 --z 0.0 --pitch 90 --send
+python3 manual_test_pose.py --x 0.424 --y -0.053 --z 0.0 --pitch 88 --send
+python3 manual_test_pose.py --x 0.424 --y -0.053 --z 0.0 --pitch 83 --send
+
+如果还要同时微调 roll / yaw：
+
+python3 manual_test_pose.py --x 0.424 --y -0.053 --z 0.0 --roll 0 --pitch 88 --yaw 0 --send
+
 
 ros2  service call /z1_reset_arm  z1_arm_controller_cpp/srv/MoveArm "{}"
