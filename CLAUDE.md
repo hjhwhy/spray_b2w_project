@@ -10,6 +10,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 构建命令
 
+### 命令行更改工控机时间 
+sudo timedatectl set-ntp false
+sudo timedatectl set-time "2026-4-23"
+
 ### 编译各工作空间（依赖顺序）
 
 跨工作空间依赖关系：
