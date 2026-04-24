@@ -532,6 +532,7 @@ private:
 
         case EXECUTING_ARM_TASK:
         {
+            sport_client_.Move(0, 0, 0);
             // === 检查 RTK 数据是否足够新（例如 < 400ms）===
             rclcpp::Time now = this->now();
             double rtk_age = (now - last_rtk_update_time_).seconds();
@@ -636,6 +637,7 @@ private:
 
         case TRIGGERING_RELAY:
         {
+            sport_client_.Move(0, 0, 0);
             if (!trigger_relay_client_->wait_for_service(std::chrono::seconds(1))) {
                 RCLCPP_WARN(this->get_logger(), "Service /trigger_valve_ch1 not available.");
                 return;
@@ -668,6 +670,7 @@ private:
 
         case RESETTING_ARM:
         {
+            sport_client_.Move(0, 0, 0);
             if (!z1_reset_arm_client_->wait_for_service(std::chrono::seconds(1))) {
                 RCLCPP_WARN(this->get_logger(), "Service /z1_reset_arm not available.");
                 return;
@@ -700,6 +703,7 @@ private:
 
         case GET_NEXT_WAYPOINT:
         {
+            sport_client_.Move(0, 0, 0);
             RCLCPP_INFO(this->get_logger(), "Ready to fetch next waypoint...");
             state_ = WAITING_FOR_WAYPOINT;   
             break;
