@@ -32,7 +32,9 @@
 #include <nav_msgs/msg/path.hpp>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
-#include <sensor_msgs/msg/laser_scan.hpp> 
+#include <sensor_msgs/msg/laser_scan.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <sensor_msgs/point_cloud2_iterator.hpp>
 using namespace unitree::common;
 using namespace unitree::robot;
 using namespace unitree::robot::b2;
@@ -117,6 +119,8 @@ public:
         motor_temp_publisher_ = this->create_publisher<std_msgs::msg::Float32MultiArray>("/motors_temperatures", 10);
         odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("/b2w_odom", 50);
         path_pub_ = this->create_publisher<nav_msgs::msg::Path>("/b2w_path", 10);
+        acquired_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/acquired_points", 10);
+        unacquired_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/unacquired_points", 10);
         path_msg_.header.frame_id = "map";
         odom_rtk_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
             "/epsg_position", 10, [this](const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
@@ -705,6 +709,7 @@ private:
         {
             sport_client_.Move(0, 0, 0);
             RCLCPP_INFO(this->get_logger(), "Ready to fetch next waypoint...");
+            publishWaypointClouds();
             state_ = WAITING_FOR_WAYPOINT;   
             break;
         }
@@ -820,6 +825,8 @@ private:
     std::unique_ptr<ChannelSubscriber<unitree_go::msg::dds_::LowState_>> lowstate_subscriber_;
     nav_msgs::msg::Path path_msg_;
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr acquired_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr unacquired_pub_;
 
     std::string waypoint_file_path_;
     std::vector<Waypoint> waypoints_;
@@ -869,6 +876,36 @@ private:
     rclcpp::Time last_rtk_update_time_;
     uint64_t rtk_update_seq_ = 0;
     uint64_t arm_wait_rtk_seq_ = 0;
+
+    sensor_msgs::msg::PointCloud2 makeWaypointCloud(size_t from, size_t to)
+    {
+        sensor_msgs::msg::PointCloud2 cloud;
+        cloud.header.frame_id = "map";
+        cloud.header.stamp = this->now();
+        cloud.height = 1;
+        cloud.width = static_cast<uint32_t>(to - from);
+        cloud.is_dense = true;
+        cloud.is_bigendian = false;
+        sensor_msgs::PointCloud2Modifier mod(cloud);
+        mod.setPointCloud2Fields(3,
+            "x", 1, sensor_msgs::msg::PointField::FLOAT64,
+            "y", 1, sensor_msgs::msg::PointField::FLOAT64,
+            "z", 1, sensor_msgs::msg::PointField::FLOAT64);
+        mod.resize(to - from);
+        sensor_msgs::PointCloud2Iterator<double> ix(cloud, "x"), iy(cloud, "y"), iz(cloud, "z");
+        for (size_t i = from; i < to; ++i, ++ix, ++iy, ++iz) {
+            *ix = waypoints_[i].x;
+            *iy = waypoints_[i].y;
+            *iz = waypoints_[i].z;
+        }
+        return cloud;
+    }
+
+    void publishWaypointClouds()
+    {
+        acquired_pub_->publish(makeWaypointCloud(0, current_waypoint_index_));
+        unacquired_pub_->publish(makeWaypointCloud(current_waypoint_index_, waypoints_.size()));
+    }
 
     void PublishOdom()
     {
