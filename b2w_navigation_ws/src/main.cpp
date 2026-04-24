@@ -498,8 +498,8 @@ private:
                 RCLCPP_ERROR(this->get_logger(), "Move command failed with code: %d", ret);
             }
             moving_ = (ret == 0);
-            RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000, 
-                "Moving: Target=(%.2f,%.2f) Dist=%.2f YawErr=%.2f vyaw=%.2f", target_x_, target_y_, distance_to_target, heading_error, yaw_cmd);
+            RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 500, 
+                "Moving: Target=(%.2f,%.2f) Dist=%.2f YawErr=%.2f vcmd=%.2f vyaw=%.2f", target_x_, target_y_, distance_to_target, heading_error, v_cmd, yaw_cmd);
             break;
         }
 
