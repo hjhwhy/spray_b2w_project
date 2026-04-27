@@ -62,6 +62,24 @@ done
 echo "ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-unset}"
 echo "RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-unset}"
 
+echo "================ 手动自动作业模式 ================"
+echo "当前脚本将直接启动喷涂主流程，即使 APP 故障也可独立运行。"
+echo "目标点文件: ${ROBOT_HOME}/gnss_waypoints.txt"
+if [ -f "${ROBOT_HOME}/gnss_waypoints.txt" ]; then
+    echo "目标点文件存在。"
+else
+    echo "警告：目标点文件不存在，主控可能无法正常读取任务点。"
+fi
+
+if pgrep -x robot_tcp_node >/dev/null 2>&1; then
+    echo "检测到 robot_tcp_node 正在运行：当前为 自动作业 + APP远程可控 模式。"
+else
+    echo "未检测到 robot_tcp_node：当前为 纯自动作业 模式。"
+    echo "说明：此模式下可直接自动执行任务，但 APP 无法下发 start/pause/stop/restart。"
+fi
+echo "如需恢复 APP 控制，请另外启动: ${ROBOT_HOME}/tcp_base_ctl.sh"
+echo "==============================================="
+
 # 用于保存所有后台 PID
 PIDS=()
 
