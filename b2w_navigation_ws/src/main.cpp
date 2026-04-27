@@ -53,6 +53,23 @@ public:
         double z;
     };
 
+    enum State {
+        WAITING_FOR_WAYPOINT,
+        ALIGNING_YAW,
+        MOVING_TO_TARGET,
+        REPOSITIONING_BACKWARD,
+        WAITING_FOR_FRESH_RTK,
+        AVOID_TURNING,
+        AVOID_MOVING,
+        EXECUTING_ARM_TASK,
+        RETRYING_ARM_AFTER_FORWARD,
+        RETRYING_ARM_AFTER_BACKUP,
+        TRIGGERING_RELAY,
+        RESETTING_ARM,
+        GET_NEXT_WAYPOINT,
+        FINISH_ALL_POINTS
+    };
+
     explicit B2WNavigationController()
         : Node("b2w_navigation_controller"),
           moving_(false), state_(WAITING_FOR_WAYPOINT),
@@ -136,6 +153,12 @@ public:
         z1_move_to_target_client_ = this->create_client<z1_arm_controller_cpp::srv::MoveArm>("/z1_move_to_target");
         trigger_relay_client_ = this->create_client<std_srvs::srv::Trigger>("/trigger_valve_ch1");
         z1_reset_arm_client_ = this->create_client<z1_arm_controller_cpp::srv::MoveArm>("/z1_reset_arm");
+        emergency_stop_service_ = this->create_service<std_srvs::srv::Trigger>(
+            "/emergency_stop",
+            std::bind(&B2WNavigationController::HandleEmergencyStop, this, std::placeholders::_1, std::placeholders::_2));
+        erase_emergency_stop_service_ = this->create_service<std_srvs::srv::Trigger>(
+            "/erase_emergency_stop",
+            std::bind(&B2WNavigationController::HandleEraseEmergencyStop, this, std::placeholders::_1, std::placeholders::_2));
 
         sport_client_.SetTimeout(25.0f);
         sport_client_.Init();
@@ -245,8 +268,6 @@ private:
     {
         const unitree_go::msg::dds_::LowState_* msg = 
                 static_cast<const unitree_go::msg::dds_::LowState_*>(msg_raw);
-        const unitree_go::msg::dds_::BmsState_* msg_battery = 
-                static_cast<const unitree_go::msg::dds_::BmsState_*>(msg_raw);
         auto current_time = this->now();
         double dt = (current_time - last_time_).seconds(); // 计算时间间隔，单位：秒
         // 检查时间间隔，防止 dt 过小或为负（例如节点刚启动或时钟异常）
@@ -284,7 +305,7 @@ private:
         last_time_ = current_time;
         imu_publisher_->publish(imu_msg);
         // ---------------- 新增：电池状态解析 ----------------
-        const auto& bms = *msg_battery;
+        const auto& bms = msg->bms_state();
         uint8_t battery_soc = bms.soc();     // 电池电量（1~100）
         uint8_t battery_status = bms.status();  // 电池状态（SAFE, CHG, DCHG 等）
         /*RCLCPP_INFO_THROTTLE( this->get_logger(),  *this->get_clock(), 
@@ -348,8 +369,106 @@ private:
         return angle;
     }
 
+    bool HasValidPose() const
+    {
+        return std::isfinite(current_x_) &&
+               std::isfinite(current_y_) &&
+               std::isfinite(current_yaw_);
+    }
+
+    const char *StateToString(State state) const
+    {
+        switch (state) {
+            case WAITING_FOR_WAYPOINT: return "WAITING_FOR_WAYPOINT";
+            case ALIGNING_YAW: return "ALIGNING_YAW";
+            case MOVING_TO_TARGET: return "MOVING_TO_TARGET";
+            case REPOSITIONING_BACKWARD: return "REPOSITIONING_BACKWARD";
+            case WAITING_FOR_FRESH_RTK: return "WAITING_FOR_FRESH_RTK";
+            case AVOID_TURNING: return "AVOID_TURNING";
+            case AVOID_MOVING: return "AVOID_MOVING";
+            case EXECUTING_ARM_TASK: return "EXECUTING_ARM_TASK";
+            case RETRYING_ARM_AFTER_FORWARD: return "RETRYING_ARM_AFTER_FORWARD";
+            case RETRYING_ARM_AFTER_BACKUP: return "RETRYING_ARM_AFTER_BACKUP";
+            case TRIGGERING_RELAY: return "TRIGGERING_RELAY";
+            case RESETTING_ARM: return "RESETTING_ARM";
+            case GET_NEXT_WAYPOINT: return "GET_NEXT_WAYPOINT";
+            case FINISH_ALL_POINTS: return "FINISH_ALL_POINTS";
+            default: return "UNKNOWN";
+        }
+    }
+
+    void HandleEmergencyStop(
+        const std::shared_ptr<std_srvs::srv::Trigger::Request> /*request*/,
+        std::shared_ptr<std_srvs::srv::Trigger::Response> response)
+    {
+        if (paused_) {
+            response->success = true;
+            response->message = std::string("Task already paused at state: ") + StateToString(state_);
+            return;
+        }
+
+        paused_ = true;
+        pause_stop_latched_ = false;
+        moving_ = false;
+        try {
+            sport_client_.Move(0, 0, 0);
+        } catch (...) {
+            RCLCPP_WARN(this->get_logger(), "Exception while stopping robot during emergency stop.");
+        }
+
+        response->success = true;
+        response->message = std::string("Task paused at state: ") + StateToString(state_);
+        RCLCPP_WARN(this->get_logger(), "%s", response->message.c_str());
+    }
+
+    void HandleEraseEmergencyStop(
+        const std::shared_ptr<std_srvs::srv::Trigger::Request> /*request*/,
+        std::shared_ptr<std_srvs::srv::Trigger::Response> response)
+    {
+        if (!paused_) {
+            response->success = true;
+            response->message = std::string("Task is not paused. Current state: ") + StateToString(state_);
+            return;
+        }
+
+        paused_ = false;
+        pause_stop_latched_ = false;
+        response->success = true;
+        response->message = std::string("Task resumed from state: ") + StateToString(state_);
+        RCLCPP_INFO(this->get_logger(), "%s", response->message.c_str());
+    }
+
     void ControlLoop()
     {
+        if (paused_) {
+            if (!pause_stop_latched_) {
+                try {
+                    sport_client_.Move(0, 0, 0);
+                } catch (...) {
+                    RCLCPP_WARN(this->get_logger(), "Exception while holding robot stop in paused state.");
+                }
+                moving_ = false;
+                pause_stop_latched_ = true;
+            }
+            RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+                "Emergency pause active. Controller frozen at state: %s",
+                StateToString(state_));
+            return;
+        }
+        pause_stop_latched_ = false;
+
+        if (!HasValidPose()) {
+            RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+                "Waiting for valid RTK pose before executing navigation state machine.");
+            try {
+                sport_client_.Move(0, 0, 0);
+            } catch (...) {
+                RCLCPP_WARN(this->get_logger(), "Exception while holding robot stop before valid RTK pose.");
+            }
+            moving_ = false;
+            return;
+        }
+
         constexpr double kAngularKp = 1.2;        
         const double dx_to_target = target_x_ - current_x_;
         const double dy_to_target = target_y_ - current_y_;
@@ -797,22 +916,6 @@ private:
     }
 
 private:
-    enum State {
-        WAITING_FOR_WAYPOINT,
-        ALIGNING_YAW,
-        MOVING_TO_TARGET,
-        REPOSITIONING_BACKWARD,
-        WAITING_FOR_FRESH_RTK,
-        AVOID_TURNING,
-        AVOID_MOVING,
-        EXECUTING_ARM_TASK,
-        RETRYING_ARM_AFTER_FORWARD,
-        RETRYING_ARM_AFTER_BACKUP,
-        TRIGGERING_RELAY,
-        RESETTING_ARM,
-        GET_NEXT_WAYPOINT,
-        FINISH_ALL_POINTS  
-    };
     State state_;
 
     // --- 成员变量 ---
@@ -835,6 +938,8 @@ private:
     rclcpp::Client<z1_arm_controller_cpp::srv::MoveArm>::SharedPtr z1_move_to_target_client_;
     rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr trigger_relay_client_;
     rclcpp::Client<z1_arm_controller_cpp::srv::MoveArm>::SharedPtr z1_reset_arm_client_;
+    rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr emergency_stop_service_;
+    rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr erase_emergency_stop_service_;
     // 用于保存机械臂动作的 future 和是否已发起请求
     rclcpp::Client<z1_arm_controller_cpp::srv::MoveArm>::SharedFuture arm_task_future_;
     bool arm_task_requested_ = false;
@@ -856,8 +961,10 @@ private:
     double current_vx_ = 0.0, current_vy_ = 0.0;
     double last_dx_local_ = 0.0;
     bool moving_;
+    bool paused_ = false;
+    bool pause_stop_latched_ = false;
     double last_path_x_ = 0.0, last_path_y_ = 0.0;
-    double current_yaw_; 
+    double current_yaw_ = NAN; 
 
     // 声明可配置参数（作为类成员）
     double heading_alignment_threshold_, moving_to_target_forward_speed_;
