@@ -206,10 +206,10 @@ ros2 run z1_arm_controller_cpp z1_arm_controller_node > logs/z1.log 2>&1 &
 PIDS+=($!)
 sleep 1
 
-echo "启动 rslidar_sdk..."
-ros2 launch rslidar_sdk start.py &
-PIDS+=($!)
-sleep 1
+# echo "启动 rslidar_sdk..."
+# ros2 launch rslidar_sdk start.py &
+# PIDS+=($!)
+# sleep 1
 
 echo "启动 b2w 主控节点"
 ros2 launch b2w_navigation_controller b2w_navigation.launch > logs/b2w_navigation.log 2>&1 &
