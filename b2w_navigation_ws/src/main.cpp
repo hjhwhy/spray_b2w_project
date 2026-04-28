@@ -205,8 +205,8 @@ private:
 
         double angle_step = last_scan_.angle_increment;
         int center_idx = size / 2;
-        // 扫描前方 -45度 到 +45度
-        int span = (int)((M_PI/4.0) / angle_step); // 45度转弧度
+        // 扫描前方 -50度 到 +50度
+        int span = (int)((50.0 * M_PI / 180.0) / angle_step); // 50度转弧度
         int start_idx = std::max(0, center_idx - span);
         int end_idx = std::min(size - 1, center_idx + span);
 
@@ -222,33 +222,7 @@ private:
     }
     // 寻找空旷方向 (返回建议的角速度)
     double find_clear_direction() {
-        if (!has_scan_data_) return -0.5; // 默认右转
-
-        int size = last_scan_.ranges.size();
-        int center_idx = size / 2;
-        double angle_step = last_scan_.angle_increment;
-        int span_90 = (int)((M_PI/2.0) / angle_step); // 90度
-
-        int left_idx = (center_idx + span_90) % size;
-        int right_idx = (center_idx - span_90 + size) % size;
-
-        float left_dist = 100.0;
-        float right_dist = 100.0;
-
-        if (last_scan_.ranges[left_idx] > last_scan_.range_min && 
-            last_scan_.ranges[left_idx] < last_scan_.range_max)
-            left_dist = last_scan_.ranges[left_idx];
-
-        if (last_scan_.ranges[right_idx] > last_scan_.range_min && 
-            last_scan_.ranges[right_idx] < last_scan_.range_max)
-            right_dist = last_scan_.ranges[right_idx];
-
-        // 哪边远往哪边转
-        if (left_dist > right_dist) {
-            return 0.5;  // 向左转
-        } else {
-            return -0.5; // 向右转
-        }
+        return -0.5; // 默认始终右转，避免在左右空间接近时来回切换
     }
 
     // 计算角度误差 [修正版，处理 PI 跳变]
@@ -552,8 +526,8 @@ private:
         {
             if (is_front_obstacle()) {
                 RCLCPP_WARN(this->get_logger(), "Obstacle detected! Switching to Avoidance.");
-                state_ = AVOID_TURNING;
                 sport_client_.Move(0.0, 0.0, 0.0);
+                state_ = AVOID_TURNING;
                 break; 
             }
             if (distance_to_target <= arrive_distance_) {
@@ -698,7 +672,8 @@ private:
                 // 可选：设置末端朝向（例如让夹爪垂直向下）
                 // 使用四元数表示：绕 Y 轴旋转 90 度
                 tf2::Quaternion q;
-                q.setRPY(0, 83.0 * M_PI / 180.0, 0); // 经测试，机械臂末端平面朝下的角度为83度
+                //q.setRPY(0, 83.0 * M_PI / 180.0, 0); // 经测试，机械臂末端平面朝下的角度为83度
+                q.setRPY(0, 90.0 * M_PI / 180.0, 0); 
                 request->target_pose.orientation = tf2::toMsg(q);
                 /*request->target_pose.orientation.w = 0.9004;
                 request->target_pose.orientation.x = 0.0;
