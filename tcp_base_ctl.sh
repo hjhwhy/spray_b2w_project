@@ -35,6 +35,15 @@ done
 
 cleanup() {
     echo "[$(date '+%F %T')] tcp_base_ctl cleanup triggered"
+    if [[ -f /tmp/start_all.pid ]]; then
+        local start_all_pid=""
+        start_all_pid="$(cat /tmp/start_all.pid 2>/dev/null || true)"
+        if [[ -n "$start_all_pid" ]] && kill -0 "$start_all_pid" 2>/dev/null; then
+            echo "检测到主流程仍在运行，先停止 start_all.sh 进程组..."
+            kill -TERM -"$start_all_pid" 2>/dev/null || true
+            sleep 1
+        fi
+    fi
     if [[ -n "${TCP_PID:-}" ]] && kill -0 "$TCP_PID" 2>/dev/null; then
         echo "停止 app 通讯..."
         kill -TERM "$TCP_PID" 2>/dev/null || true

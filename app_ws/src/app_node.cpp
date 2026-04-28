@@ -27,6 +27,7 @@
 #include <sensor_msgs/point_cloud2_iterator.hpp>
 #include <fstream>
 #include <string>
+#include <unordered_map>
 #include <std_srvs/srv/trigger.hpp>
 
 struct Point {
@@ -399,6 +400,15 @@ private:
         const rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr &client,
         const std::string &action_name)
     {
+        if ((action_name == "Emergency stop" || action_name == "Erase emergency stop") &&
+            !canAttemptStartAllControl()) {
+            RCLCPP_WARN(
+                this->get_logger(),
+                "%s rejected: start_all 主流程尚未进入可控状态，请等待 start_all.ready 至少进入 partial 状态。",
+                action_name.c_str());
+            return;
+        }
+
         constexpr int kMaxAttempts = 5;
         bool service_ready = false;
         for (int attempt = 1; attempt <= kMaxAttempts; ++attempt) {
@@ -428,6 +438,53 @@ private:
                                 action_name.c_str(), response->message.c_str());
                 }
             });
+    }
+
+    bool canAttemptStartAllControl() const
+    {
+        std::ifstream ready_file("/tmp/start_all.ready");
+        if (!ready_file.is_open()) {
+            RCLCPP_WARN(this->get_logger(), "start_all readiness file /tmp/start_all.ready does not exist.");
+            return false;
+        }
+
+        std::unordered_map<std::string, std::string> kv;
+        std::string line;
+        while (std::getline(ready_file, line)) {
+            const auto pos = line.find('=');
+            if (pos == std::string::npos) {
+                continue;
+            }
+            kv[line.substr(0, pos)] = line.substr(pos + 1);
+        }
+
+        const auto state_it = kv.find("state");
+        const auto service_it = kv.find("service_ready");
+        const auto probe_it = kv.find("probe_ok");
+        if (state_it == kv.end() || service_it == kv.end() || probe_it == kv.end()) {
+            RCLCPP_WARN(this->get_logger(), "start_all readiness file is incomplete.");
+            return false;
+        }
+
+        if (state_it->second == "ready" && service_it->second == "1" && probe_it->second == "1") {
+            return true;
+        }
+
+        if (state_it->second == "partial" && service_it->second == "1") {
+            RCLCPP_WARN(
+                this->get_logger(),
+                "start_all readiness is partial (probe_ok=%s); attempting service call anyway.",
+                probe_it->second.c_str());
+            return true;
+        }
+
+        RCLCPP_WARN(
+            this->get_logger(),
+            "start_all readiness state is '%s' (service_ready=%s, probe_ok=%s).",
+            state_it->second.c_str(),
+            service_it->second.c_str(),
+            probe_it->second.c_str());
+        return false;
     }
 
     void closeClientSocketLocked()
