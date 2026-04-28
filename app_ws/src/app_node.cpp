@@ -656,9 +656,6 @@ private:
 
         sendPacket(packet);
         RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 4000, "Sent Path with %u points", N);
-        
-        // 打印包内容
-        logPacket("TX PATH", packet.data(), packet.size(), this->get_logger());
     }
 
     std::vector<Point> parsePoints(const std::string& filename) {
