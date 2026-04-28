@@ -235,7 +235,7 @@ private:
 
     void ImuUpdate()
     {
-        PublishOdom();
+        // Keep IMU timer focused on IMU-related work only.
     }
 
     void channel_callback(const void* msg_raw)
@@ -334,6 +334,7 @@ private:
         current_y_ = base_y;
         ++rtk_update_seq_;
         last_rtk_update_time_ = this->now();
+        PublishOdom();
     }
 
     double NormalizeAngle(double angle)
@@ -414,6 +415,7 @@ private:
 
     void ControlLoop()
     {
+
         if (paused_) {
             if (!pause_stop_latched_) {
                 try {
