@@ -379,6 +379,21 @@ private:
             return;
         }
 
+        if (instruction_type == 0x0A || instruction_type == 0x0B || instruction_type == 0xFF) {
+            sensor_msgs::msg::Joy joy_msg;
+            joy_msg.axes.resize(3, 0.0F);
+            joy_msg.buttons.resize(3, 0);
+            switch (instruction_type) {
+                case 0x0A: joy_msg.buttons[0] = 1; break;
+                case 0x0B: joy_msg.buttons[1] = 1; break;
+                case 0xFF: joy_msg.buttons[2] = 1; break;
+                default: break;
+            }
+            joy_pub_->publish(joy_msg);
+            RCLCPP_INFO(this->get_logger(), "Published Joy action for instruction 0x%02X", instruction_type);
+            return;
+        }
+
         if (instruction_type == 0x10) {
             RCLCPP_INFO(this->get_logger(), "Received command: restart/resume (0x10)");
             if (requestTrigger(erase_emergency_stop_client_, "Erase emergency stop")) {

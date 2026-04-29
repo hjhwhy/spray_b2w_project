@@ -40,6 +40,25 @@ public:
 private:
     void joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg)
     {
+        if (msg->buttons.size() > 2) {
+            int res = 0;
+            if (msg->buttons[2] != 0) {
+                res = sport_client_.Damp();
+                RCLCPP_WARN(this->get_logger(), "Executed Damp from APP command.");
+            } else if (msg->buttons[0] != 0) {
+                res = sport_client_.StandDown();
+                RCLCPP_INFO(this->get_logger(), "Executed StandDown from APP command.");
+            } else if (msg->buttons[1] != 0) {
+                res = sport_client_.StandUp();
+                RCLCPP_INFO(this->get_logger(), "Executed StandUp from APP command.");
+            }
+
+            if (res < 0) {
+                RCLCPP_WARN(this->get_logger(), "SportClient action failed, code: %d", res);
+            }
+            return;
+        }
+
         float linear_x = 0.0f, linear_y = 0.0f, linear_vyaw = 0.0f;
         if (msg->axes.size() > 2) {
             linear_x = static_cast<float>(std::clamp(static_cast<double>(msg->axes[1]), -1.0, 1.0) * teleop_linear_x_speed_);
