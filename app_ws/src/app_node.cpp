@@ -324,7 +324,12 @@ private:
                 }
                 case 0x02:
                     cmd_str = "pause";
-                    requestTrigger(emergency_stop_client_, "Emergency stop");
+                    RCLCPP_INFO(this->get_logger(), "Received command: pause (0x02)");
+                    if (requestTrigger(emergency_stop_client_, "Emergency stop")) {
+                        RCLCPP_INFO(this->get_logger(), "Pause request accepted.");
+                    } else {
+                        RCLCPP_WARN(this->get_logger(), "Pause rejected.");
+                    }
                     break;
                 case 0x03:
                     cmd_str = "stop";
@@ -350,7 +355,9 @@ private:
             auto msg = std_msgs::msg::String();
             msg.data = cmd_str;
             command_pub_->publish(msg);
-            RCLCPP_INFO(this->get_logger(), "Received command: %s (0x%02X)", cmd_str.c_str(), instruction_type);
+            if (instruction_type != 0x02) {
+                RCLCPP_INFO(this->get_logger(), "Received command: %s (0x%02X)", cmd_str.c_str(), instruction_type);
+            }
             return;
         }
 
@@ -374,7 +381,11 @@ private:
 
         if (instruction_type == 0x10) {
             RCLCPP_INFO(this->get_logger(), "Received command: restart/resume (0x10)");
-            requestTrigger(erase_emergency_stop_client_, "Erase emergency stop");
+            if (requestTrigger(erase_emergency_stop_client_, "Erase emergency stop")) {
+                RCLCPP_INFO(this->get_logger(), "Restart/resume request accepted.");
+            } else {
+                RCLCPP_WARN(this->get_logger(), "Restart/resume rejected.");
+            }
             return;
         }
 
@@ -396,7 +407,7 @@ private:
         }
     }
 
-    void requestTrigger(
+    bool requestTrigger(
         const rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr &client,
         const std::string &action_name)
     {
@@ -406,7 +417,7 @@ private:
                 this->get_logger(),
                 "%s rejected: start_all 主流程尚未进入可控状态，请等待 start_all.ready 至少进入 partial 状态。",
                 action_name.c_str());
-            return;
+            return false;
         }
 
         constexpr int kMaxAttempts = 5;
@@ -423,7 +434,7 @@ private:
 
         if (!service_ready) {
             RCLCPP_WARN(this->get_logger(), "%s service is not available.", action_name.c_str());
-            return;
+            return false;
         }
 
         auto request = std::make_shared<std_srvs::srv::Trigger::Request>();
@@ -438,6 +449,7 @@ private:
                                 action_name.c_str(), response->message.c_str());
                 }
             });
+        return true;
     }
 
     bool canAttemptStartAllControl() const

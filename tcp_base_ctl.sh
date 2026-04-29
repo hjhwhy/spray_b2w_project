@@ -8,6 +8,11 @@ LOG_DIR="${ROBOT_HOME}/logs"
 RUN_LOG="${LOG_DIR}/tcp_base_ctl.log"
 TELEOP_LOG="${LOG_DIR}/b2w_teleop.log"
 TCP_LOG="${LOG_DIR}/robot_tcp.log"
+RS485_LOG="${LOG_DIR}/485.log"
+TF_LOG="${LOG_DIR}/tf_publisher.log"
+GNSS_LOG="${LOG_DIR}/ins_parser.log"
+Z1_CTRL_LOG="${LOG_DIR}/z1_ctrl.log"
+Z1_ARM_LOG="${LOG_DIR}/z1.log"
 TELEOP_REL="b2w_navigation_ws/install/b2w_navigation_controller/lib/b2w_navigation_controller/b2w_teleop_node"
 TCP_REL="app_ws/install/robot_tcp/lib/robot_tcp/robot_tcp_node"
 TELEOP_BIN=""
@@ -54,11 +59,26 @@ cleanup() {
         kill -TERM "$TELEOP_PID" 2>/dev/null || true
         wait "$TELEOP_PID" 2>/dev/null || true
     fi
+    for entry in \
+        "Z1_ARM_PID:z1_arm_controller_node" \
+        "Z1_CTRL_PID:z1_ctrl" \
+        "GNSS_PID:ins_parser" \
+        "TF_PID:tf_publisher" \
+        "RS485_PID:rs485_node"; do
+        local var_name="${entry%%:*}"
+        local label="${entry#*:}"
+        local pid="${!var_name:-}"
+        if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+            echo "停止基础节点: $label pid=$pid"
+            kill -TERM "$pid" 2>/dev/null || true
+            wait "$pid" 2>/dev/null || true
+        fi
+    done
 }
 trap cleanup EXIT SIGINT SIGTERM
 
 mkdir -p "$LOG_DIR"
-touch "$RUN_LOG" "$TELEOP_LOG" "$TCP_LOG"
+touch "$RUN_LOG" "$TELEOP_LOG" "$TCP_LOG" "$RS485_LOG" "$TF_LOG" "$GNSS_LOG" "$Z1_CTRL_LOG" "$Z1_ARM_LOG"
 
 exec > >(tee -a "$RUN_LOG") 2>&1
 
@@ -152,10 +172,18 @@ cleanup_stale_processes() {
     local names=(
         "robot_tcp_node"
         "b2w_teleop_node"
+        "rs485_node"
+        "ins_parser"
+        "z1_ctrl"
+        "z1_arm_controller_node"
     )
     local legacy_patterns=(
         "ros2 run robot_tcp robot_tcp_node"
         "ros2 run b2w_navigation_controller b2w_teleop_node"
+        "ros2 launch rs485_node rs485.launch.py"
+        "ros2 launch robot_tf_broadcaster tf_publisher.launch"
+        "ros2 run ins_driver_node ins_parser"
+        "ros2 run z1_arm_controller_cpp z1_arm_controller_node"
     )
 
     for name in "${names[@]}"; do
@@ -256,6 +284,48 @@ cleanup_stale_processes() {
 
 ensure_teleop_capability
 cleanup_stale_processes
+
+echo "设置COM2 THS1 为 485 模式..."
+sudo /opt/vendor_test/tac3kp_uart_mode_config.sh 485
+sleep 1
+
+echo "修改 /dev/ttyTHS1 THS2 权限..."
+sudo chmod 777 /dev/ttyTHS1
+sudo chmod 777 /dev/ttyTHS2
+sleep 1
+
+echo "启动继电器基础节点"
+ros2 launch rs485_node rs485.launch.py >>"$RS485_LOG" 2>&1 &
+RS485_PID=$!
+echo "[$(date '+%F %T')] rs485_node launcher pid=$RS485_PID"
+sleep 1
+
+echo "启动 tf_publisher 基础节点"
+ros2 launch robot_tf_broadcaster tf_publisher.launch >>"$TF_LOG" 2>&1 &
+TF_PID=$!
+echo "[$(date '+%F %T')] tf_publisher launcher pid=$TF_PID"
+sleep 1
+
+echo "启动司南 GNSS 基础节点"
+ros2 run ins_driver_node ins_parser --ros-args -p port:=/dev/ttyTHS2 -p baudrate:=115200 >>"$GNSS_LOG" 2>&1 &
+GNSS_PID=$!
+echo "[$(date '+%F %T')] ins_parser pid=$GNSS_PID"
+sleep 1
+
+echo "启动 z1_ctrl 基础程序"
+(
+    cd "$ROBOT_HOME/z1_controller/build/"
+    ./z1_ctrl >>"$Z1_CTRL_LOG" 2>&1
+) &
+Z1_CTRL_PID=$!
+echo "[$(date '+%F %T')] z1_ctrl pid=$Z1_CTRL_PID"
+sleep 1
+
+echo "启动 z1_arm_controller_node 基础节点"
+ros2 run z1_arm_controller_cpp z1_arm_controller_node >>"$Z1_ARM_LOG" 2>&1 &
+Z1_ARM_PID=$!
+echo "[$(date '+%F %T')] z1_arm_controller_node pid=$Z1_ARM_PID"
+sleep 1
 
 echo "启动 app 底盘遥控"
 "$TELEOP_BIN" eth2 >>"$TELEOP_LOG" 2>&1 &

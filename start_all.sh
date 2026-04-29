@@ -170,47 +170,6 @@ else
 fi
 sleep 1
 
-echo "设置COM2 THS1 为 485 模式..."
-sudo /opt/vendor_test/tac3kp_uart_mode_config.sh 485
-sleep 1
-
-echo "修改 /dev/ttyTHS1 THS2  权限..."
-sudo chmod 777 /dev/ttyTHS1
-sudo chmod 777 /dev/ttyTHS2
-sleep 1
-
-echo "启动 继电器 .."
-ros2 launch rs485_node rs485.launch.py  > logs/485.log 2>&1 	&
-PIDS+=($!)
-sleep 1
-
-echo "启动 tf_publisher..."
-ros2 launch robot_tf_broadcaster tf_publisher.launch &
-PIDS+=($!)
-sleep 1
-
-echo "启动司南 gnss ..."
-ros2 run ins_driver_node ins_parser --ros-args -p port:=/dev/ttyTHS2 -p baudrate:=115200  &
-PIDS+=($!)
-sleep 1
-
-echo "启动 z1_ctrl 程序..."
-cd /home/test/z1_controller/build/
-./z1_ctrl > /home/test/logs/z1_ctrl.log 2>&1 &
-PIDS+=($!)
-sleep 1
-
-echo "启动 z1_arm_controller_node..."
-cd /home/test
-ros2 run z1_arm_controller_cpp z1_arm_controller_node > logs/z1.log 2>&1 &
-PIDS+=($!)
-sleep 1
-
-# echo "启动 rslidar_sdk..."
-# ros2 launch rslidar_sdk start.py &
-# PIDS+=($!)
-# sleep 1
-
 echo "启动 b2w 主控节点"
 ros2 launch b2w_navigation_controller b2w_navigation.launch > logs/b2w_navigation.log 2>&1 &
 NAV_PID=$!
