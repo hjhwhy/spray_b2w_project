@@ -10,9 +10,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 构建命令
 
-### 命令行更改工控机时间 
+### 命令行更改工控机时间
+
+机器离线且 RTC 不稳定时，优先使用仓库脚本设置日期。默认年份为 2026：
+
+```bash
+./resettime.sh -4-29
+./resettime.sh -4-29 08:30:00
+```
+
+等价手动命令：
+
+```bash
 sudo timedatectl set-ntp false
-sudo timedatectl set-time "2026-4-23"
+sudo timedatectl set-time "2026-04-29 08:30:00"
+```
 
 ### 编译各工作空间（依赖顺序）
 
@@ -62,14 +74,40 @@ cd unitree_sdk2 && mkdir -p build && cd build && cmake .. && make
 make install 
 ```
 
-### 运行所有节点
+### 运行控制链路与主任务
 
 ```bash
-./start_all.sh  # 管理所有节点的生命周期，日志写入 logs/ 目录
+./tcp_base_ctl.sh  # 常驻控制链路：APP TCP、底盘遥控、RTK/TF/RS485/Z1 基础节点
+./start_all.sh     # 主任务：只启动 b2w_navigation 主控流程
 ```
 
-> **注意**：`start_all.sh` 启动以下节点：rs485_node、robot_tf_broadcaster、ins_driver_node、spray_path_planner、z1_controller（二进制）、z1_arm_controller_node、rslidar_sdk，以及 `ros2 bag record /b2w_odom`。
-> `b2w_navigation_controller`（主导航节点）和 `app_ws`（TCP服务）**不在** `start_all.sh` 中，需单独启动或由 APP 发送 0x01 指令触发。
+推荐运行方式：
+
+- APP/遥控器测试：先启动 `tcp_base_ctl.sh`（或 systemd 服务），APP 发送 `0x01 start` 后由 `robot_tcp_node` 拉起 `start_all.sh`。
+- 纯自动流程测试：可手动先启动 `tcp_base_ctl.sh`，再手动执行 `start_all.sh`。
+- `pause/restart` 只在 `start_all.sh` 生成 `/tmp/start_all.ready` 后可用；未 ready 时 APP 节点会拒绝暂停/恢复请求。
+
+`tcp_base_ctl.sh` 日志：
+
+```bash
+tail -f /home/test/logs/tcp_base_ctl_latest/tcp_base_ctl.log
+tail -f /home/test/logs/tcp_base_ctl_latest/robot_tcp.log
+tail -f /home/test/logs/tcp_base_ctl_latest/b2w_teleop.log
+```
+
+systemd 自启动：
+
+```bash
+sudo cp tcp_base_ctl.sh /home/test/tcp_base_ctl.sh
+sudo chmod +x /home/test/tcp_base_ctl.sh
+sudo cp tcp_base_ctl.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable tcp_base_ctl.service
+sudo systemctl restart tcp_base_ctl.service
+journalctl -u tcp_base_ctl.service -f
+```
+
+`tcp_base_ctl.service` 使用 `test` 用户运行主进程，并通过 `ExecStartPre` 以 root 权限完成 `setcap`、485 串口模式和串口权限配置。
 
 ## 工作空间架构
 
@@ -142,8 +180,10 @@ make install
 | `rs585_ws / relay_control_node` | 提供 | `/trigger_valve_ch1` | `std_srvs/srv/Trigger` | 触发 CH1 电磁阀 |
 | `rs585_ws / relay_control_node` | 提供 | `/trigger_pump_ch2` | `std_srvs/srv/Trigger` | 触发 CH2 水泵 |
 | `gnss_driver_ws / gnss_driver` | 提供 | `/save_utm_point` | `std_srvs/srv/Trigger` | 将当前点写入 waypoint 文件 |
-| `app_ws / remote_control_node` | 调用 | `/emergency_stop` | `std_srvs/srv/Trigger` | APP 暂停时调用；当前仓库里未找到服务提供者实现 |
-| `app_ws / remote_control_node` | 调用 | `/erase_emergency_stop` | `std_srvs/srv/Trigger` | APP 恢复时调用；当前仓库里未找到服务提供者实现 |
+| `b2w_navigation_ws / b2w_nav_node` | 提供 | `/emergency_stop` | `std_srvs/srv/Trigger` | 暂停当前自动任务，冻结导航状态机并保持底盘停止 |
+| `b2w_navigation_ws / b2w_nav_node` | 提供 | `/erase_emergency_stop` | `std_srvs/srv/Trigger` | 解除暂停，恢复当前任务状态机 |
+| `app_ws / remote_control_node` | 调用 | `/emergency_stop` | `std_srvs/srv/Trigger` | APP 暂停时调用；调用前检查 `/tmp/start_all.ready` |
+| `app_ws / remote_control_node` | 调用 | `/erase_emergency_stop` | `std_srvs/srv/Trigger` | APP 恢复时调用；调用前检查 `/tmp/start_all.ready` |
 | `b2w_navigation_ws / b2w_nav_node` | 调用 | `/set_start_point` | `spray_path_planner/srv/SetStartPoint` | 初始化时设置起点 |
 | `b2w_navigation_ws / b2w_nav_node` | 调用 | `/get_next_waypoint` | `spray_path_planner/srv/GetNextWaypoint` | 获取下一个喷涂目标 |
 | `b2w_navigation_ws / b2w_nav_node` | 调用 | `/z1_move_to_target` | `z1_arm_controller_cpp/srv/MoveArm` | 调机械臂执行喷涂位姿 |
@@ -163,7 +203,7 @@ make install
   - `gnss_driver_ws/pub_rtk_save_pt_node.cpp` 发布 `geometry_msgs/msg/PointStamped`
 - 当前主导航 `b2w_navigation_ws/src/main.cpp` 订阅的是 `PoseStamped` 版本，因此运行主流程时应优先启动 `rtk_nav_ws` 的 `ins_parser_node`。
 - `spray_path_planner` 当前 `/progress` 实际发布的是 `0~100` 百分比整数；如果 APP 协议仍按 `0~255` 处理，需要后续统一。
-- `app_ws` 中确实存在 `/emergency_stop` 和 `/erase_emergency_stop` 客户端，但当前仓库源码里没有找到对应服务端实现。
+- `/emergency_stop` 和 `/erase_emergency_stop` 由 `b2w_nav_node` 提供；`app_node.cpp` 作为客户端调用。若 `/tmp/start_all.ready` 不存在或未进入 `ready/partial`，APP 暂停/恢复会被拒绝，避免主控未就绪时误判成功。
 
 ### 自定义服务消息类型定义
 
@@ -190,7 +230,8 @@ make install
 ## 部署说明
 
 - 机器人本机用户路径：`/home/test/`（与开发机 `/home/oneko/` 不同）
-- `start_all.sh` 中硬编码了 `/home/test/z1_controller/build/` 路径，部署时需确认
+- `tcp_base_ctl.sh` 中使用 `/home/test/z1_controller/build/` 路径启动 `z1_ctrl`，部署时需确认该二进制存在
+- `start_all.sh` 只负责主任务 `b2w_navigation.launch`；基础节点由 `tcp_base_ctl.sh` 常驻维护
 - 喷涂点文件（如 `gnss_waypoints.txt`、`points_test_mikinwn.txt`）为经纬度文本，由 `spray_path_planner` 读取并转为 EPSG 2100 坐标
 
 ## 关键源文件
@@ -207,12 +248,24 @@ make install
 
 ## 配置文件
 
-- `b2w_navigation_ws/config/b2w_controller_params.yaml` — 速度、阈值等运动参数
+- `b2w_navigation_ws/config/b2w_controller_params.yaml` — 速度、阈值、RTK 外参、机械臂目标姿态和 APP 遥控速度参数
 - `b2w_navigation_ws/config/b2w_controller_params_ekf.yaml` — EKF 参数
 - `spray_path_planner_ws/config/path_planner.yaml` — 喷涂点文件路径
 - `rs585_ws/config/rs485_params.yaml` — RS485 通信参数
 - `gnss_driver_ws/config/gnss_params.yaml` — GNSS 驱动参数（端口、波特率、坐标系）
 - `01-wifi-ap.yaml` — 机器人 WiFi AP 配置（Netplan，部署时热点设置）
+
+`b2w_controller_params.yaml` 关键参数：
+
+| 参数 | 节点 | 说明 |
+|---|---|---|
+| `moving_to_target_forward_speed` | `b2w_nav_node` | 自动作业前进速度 |
+| `rtk_x_offset` | `b2w_nav_node` | RTK 天线相对 `base_link` 的 x 偏移，默认 `-0.4477` |
+| `z1_arm_target_pitch_deg` | `b2w_nav_node` | 机械臂末端目标 pitch 角度，默认 `90.0` |
+| `teleop_linear_x_speed` | `b2w_teleop_node` | APP 遥控前进/后退速度 |
+| `teleop_linear_y_speed` | `b2w_teleop_node` | APP 遥控左移/右移速度 |
+| `teleop_yaw_speed` | `b2w_teleop_node` | APP 遥控旋转角速度 |
+| `teleop_deadzone` | `b2w_teleop_node` | 遥控死区，低于该速度时发送 `StopMove()` |
 
 ## TCP 应用协议
 
@@ -242,7 +295,19 @@ APP ↔ 主控通过 TCP 长连接通信：
 | 0x07 | 右移 |
 | 0x08 | 左转 |
 | 0x09 | 右转 |
+| 0x0A | 趴下（`b2w_teleop_node` 调用 `StandDown()`） |
+| 0x0B | 站立（`b2w_teleop_node` 调用 `StandUp()`） |
 | 0x10 | 恢复（解除暂停） |
+| 0xFF | 急停阻尼（`b2w_teleop_node` 调用 `Damp()`） |
+
+控制链路说明：
+
+- `0x01 start`：`app_node.cpp` 检查 `/tmp/start_all.pid` 后通过 `setsid /home/test/start_all.sh &` 拉起主任务。
+- `0x02 pause`：`app_node.cpp` 调用 `/emergency_stop`，由 `b2w_nav_node` 暂停状态机。
+- `0x03 stop`：`app_node.cpp` 读取 `/tmp/start_all.pid`，对 `start_all.sh` 进程组发送 `SIGTERM`。
+- `0x04` ~ `0x09`：`app_node.cpp` 发布 `/joy.axes` 方向量，`b2w_teleop_node` 按 YAML 速度缩放后调用 `SportClient::Move()`。
+- `0x0A`、`0x0B`、`0xFF`：`app_node.cpp` 发布 `/joy.buttons`，`b2w_teleop_node` 分别调用 `StandDown()`、`StandUp()`、`Damp()`。
+- `0x10 restart/resume`：`app_node.cpp` 调用 `/erase_emergency_stop`，由 `b2w_nav_node` 解除暂停。
 
 ## 坐标系说明
 
