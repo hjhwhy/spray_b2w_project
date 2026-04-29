@@ -188,7 +188,7 @@ public:
         // 发送停止命令给机器人
         try {
             sport_client_.Move(0, 0, 0);
-            sport_client_.StandDown();
+            // sport_client_.StandDown();
         } catch (...) {
             RCLCPP_WARN(this->get_logger(), "Exception during sport_client cleanup.");
         }
