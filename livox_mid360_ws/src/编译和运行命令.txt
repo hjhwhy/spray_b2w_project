@@ -1,0 +1,15 @@
+sdk只要编译安装一次
+cd src/Livox-SDK2/
+mkdir build
+cd build
+cmake ..
+make
+sudo make install
+
+ros2驱动编译
+cd src/livox_ros_driver
+./build.sh humble
+
+ros驱动运行
+source install/setup.bash
+ros2 launch livox_ros_driver2 rviz_MID360_launch.py
