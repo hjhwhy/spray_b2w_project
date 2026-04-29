@@ -4,19 +4,25 @@ set -eo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROBOT_HOME="${ROBOT_HOME:-/home/test}"
+TCP_BASE_CTL_SKIP_PRIVILEGED_SETUP="${TCP_BASE_CTL_SKIP_PRIVILEGED_SETUP:-0}"
 LOG_DIR="${ROBOT_HOME}/logs"
-RUN_LOG="${LOG_DIR}/tcp_base_ctl.log"
-TELEOP_LOG="${LOG_DIR}/b2w_teleop.log"
-TCP_LOG="${LOG_DIR}/robot_tcp.log"
-RS485_LOG="${LOG_DIR}/485.log"
-TF_LOG="${LOG_DIR}/tf_publisher.log"
-GNSS_LOG="${LOG_DIR}/ins_parser.log"
-Z1_CTRL_LOG="${LOG_DIR}/z1_ctrl.log"
-Z1_ARM_LOG="${LOG_DIR}/z1.log"
+RUN_ID="$(date '+%Y%m%d_%H%M%S')_$$"
+RUN_LOG_DIR="${LOG_DIR}/tcp_base_ctl_runs/${RUN_ID}"
+LATEST_LOG_LINK="${LOG_DIR}/tcp_base_ctl_latest"
+RUN_LOG="${RUN_LOG_DIR}/tcp_base_ctl.log"
+TELEOP_LOG="${RUN_LOG_DIR}/b2w_teleop.log"
+TCP_LOG="${RUN_LOG_DIR}/robot_tcp.log"
+RS485_LOG="${RUN_LOG_DIR}/485.log"
+TF_LOG="${RUN_LOG_DIR}/tf_publisher.log"
+GNSS_LOG="${RUN_LOG_DIR}/ins_parser.log"
+Z1_CTRL_LOG="${RUN_LOG_DIR}/z1_ctrl.log"
+Z1_ARM_LOG="${RUN_LOG_DIR}/z1.log"
+TELEOP_PARAMS_FILE="${ROBOT_HOME}/b2w_navigation_ws/install/b2w_navigation_controller/share/b2w_navigation_controller/config/b2w_controller_params.yaml"
 TELEOP_REL="b2w_navigation_ws/install/b2w_navigation_controller/lib/b2w_navigation_controller/b2w_teleop_node"
 TCP_REL="app_ws/install/robot_tcp/lib/robot_tcp/robot_tcp_node"
 TELEOP_BIN=""
 TCP_BIN=""
+CLEANED_UP=0
 
 for candidate in \
     "$ROBOT_HOME/$TELEOP_REL" \
@@ -39,6 +45,11 @@ do
 done
 
 cleanup() {
+    if [[ "$CLEANED_UP" -eq 1 ]]; then
+        return
+    fi
+    CLEANED_UP=1
+
     echo "[$(date '+%F %T')] tcp_base_ctl cleanup triggered"
     if [[ -f /tmp/start_all.pid ]]; then
         local start_all_pid=""
@@ -77,14 +88,18 @@ cleanup() {
 }
 trap cleanup EXIT SIGINT SIGTERM
 
-mkdir -p "$LOG_DIR"
+mkdir -p "$RUN_LOG_DIR"
 touch "$RUN_LOG" "$TELEOP_LOG" "$TCP_LOG" "$RS485_LOG" "$TF_LOG" "$GNSS_LOG" "$Z1_CTRL_LOG" "$Z1_ARM_LOG"
+ln -sfn "$RUN_LOG_DIR" "$LATEST_LOG_LINK"
 
 exec > >(tee -a "$RUN_LOG") 2>&1
 
 echo "[$(date '+%F %T')] tcp_base_ctl starting"
 echo "[$(date '+%F %T')] ROBOT_HOME=$ROBOT_HOME"
+echo "[$(date '+%F %T')] HOME=${HOME:-unset}"
 echo "[$(date '+%F %T')] LOG_DIR=$LOG_DIR"
+echo "[$(date '+%F %T')] RUN_ID=$RUN_ID"
+echo "[$(date '+%F %T')] RUN_LOG_DIR=$RUN_LOG_DIR"
 
 source /opt/ros/humble/setup.bash
 
@@ -282,17 +297,31 @@ cleanup_stale_processes() {
     exit 1
 }
 
-ensure_teleop_capability
+if [[ "$TCP_BASE_CTL_SKIP_PRIVILEGED_SETUP" == "1" ]]; then
+    echo "跳过特权初始化：systemd ExecStartPre 已负责 setcap、串口模式和串口权限。"
+    current_caps="$(/usr/sbin/getcap "$TELEOP_BIN" 2>/dev/null || true)"
+    if [[ "$current_caps" != *"cap_net_raw=ep"* ]]; then
+        echo "错误：$TELEOP_BIN 缺少 cap_net_raw+ep，b2w_teleop_node 可能无法打开底盘网卡。" >&2
+        echo "请检查 tcp_base_ctl.service 的 ExecStartPre setcap 是否执行成功。" >&2
+        exit 1
+    fi
+else
+    ensure_teleop_capability
+fi
 cleanup_stale_processes
 
-echo "设置COM2 THS1 为 485 模式..."
-sudo /opt/vendor_test/tac3kp_uart_mode_config.sh 485
-sleep 1
+if [[ "$TCP_BASE_CTL_SKIP_PRIVILEGED_SETUP" == "1" ]]; then
+    echo "跳过串口特权初始化：systemd ExecStartPre 已完成。"
+else
+    echo "设置COM2 THS1 为 485 模式..."
+    sudo /opt/vendor_test/tac3kp_uart_mode_config.sh 485
+    sleep 1
 
-echo "修改 /dev/ttyTHS1 THS2 权限..."
-sudo chmod 777 /dev/ttyTHS1
-sudo chmod 777 /dev/ttyTHS2
-sleep 1
+    echo "修改 /dev/ttyTHS1 THS2 权限..."
+    sudo chmod 777 /dev/ttyTHS1
+    sudo chmod 777 /dev/ttyTHS2
+    sleep 1
+fi
 
 echo "启动继电器基础节点"
 ros2 launch rs485_node rs485.launch.py >>"$RS485_LOG" 2>&1 &
@@ -328,7 +357,13 @@ echo "[$(date '+%F %T')] z1_arm_controller_node pid=$Z1_ARM_PID"
 sleep 1
 
 echo "启动 app 底盘遥控"
-"$TELEOP_BIN" eth2 >>"$TELEOP_LOG" 2>&1 &
+if [[ -f "$TELEOP_PARAMS_FILE" ]]; then
+    echo "[$(date '+%F %T')] TELEOP_PARAMS_FILE=$TELEOP_PARAMS_FILE"
+    "$TELEOP_BIN" eth2 --ros-args --params-file "$TELEOP_PARAMS_FILE" >>"$TELEOP_LOG" 2>&1 &
+else
+    echo "[$(date '+%F %T')] 未找到 TELEOP_PARAMS_FILE=$TELEOP_PARAMS_FILE，使用默认遥控速度。"
+    "$TELEOP_BIN" eth2 >>"$TELEOP_LOG" 2>&1 &
+fi
 TELEOP_PID=$!
 echo "[$(date '+%F %T')] b2w_teleop_node pid=$TELEOP_PID"
 

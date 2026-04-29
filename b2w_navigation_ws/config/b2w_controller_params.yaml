@@ -3,14 +3,23 @@ b2w_nav_node:
     heading_alignment_threshold: 0.25      # 弧度，对准目标方向的允许误差
     moving_to_target_forward_speed: 0.9    # 作业时的前进速度 (m/s)
     z1_arm_end_height: 0.0                 # 机械臂末端目标高度 (m)
+    z1_arm_target_pitch_deg: 90.0          # 机械臂末端目标 pitch 角度 (deg)
     arrive_distance: 0.8                   # 到达目标点判定阈值 (m)
     min_distance_for_arm_task: 0.6         # 执行机械臂任务所需的最小距离 (m)
     reposition_back_distance: 0.35         # 太近时后退的距离 (m)
     avoid_distance: 0.8                    # 绕障前进距离 (m)
     obstacle_detection_range: 1.2          # 前方障碍物检测距离 (m)
     arm_offset_x: 0.3487                   # 机械臂底座相对 base_link 的 x 偏移 (m)
+    rtk_x_offset: -0.4477                  # RTK 天线相对 base_link 的 x 偏移 (m)
     rtk_hz: 10                             # RTK 发布频率 (Hz)
     distance_to_slow_down: 2.5             # 距离目标小于该值时开始减速 (m)
     min_useful_vyaw: 0.4                   # B2W 最小有效角速度 (rad/s)
     max_vyaw: 0.6                          # B2W 最大角速度 (rad/s)
     waypoint_file_path: "/home/test/gnss_waypoints.txt"  # 目标点文件路径
+
+b2w_teleop_node:
+  ros__parameters:
+    teleop_linear_x_speed: 0.8              # APP 遥控前进/后退速度 (m/s)
+    teleop_linear_y_speed: 0.5              # APP 遥控左移/右移速度 (m/s)
+    teleop_yaw_speed: 0.5                   # APP 遥控旋转角速度 (rad/s)
+    teleop_deadzone: 0.1                    # 遥控死区，低于该速度时发送 StopMove

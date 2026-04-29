@@ -364,14 +364,14 @@ private:
         if (instruction_type >= 0x04 && instruction_type <= 0x09) {
             sensor_msgs::msg::Joy joy_msg;
             joy_msg.axes.resize(3, 0.0F);
-            const float speed = 0.5F;
+            const float direction = 1.0F;
             switch (instruction_type) {
-                case 0x04: joy_msg.axes[1] =  speed; break;
-                case 0x05: joy_msg.axes[1] = -speed; break;
-                case 0x06: joy_msg.axes[0] =  speed; break;
-                case 0x07: joy_msg.axes[0] = -speed; break;
-                case 0x08: joy_msg.axes[2] =  speed; break;
-                case 0x09: joy_msg.axes[2] = -speed; break;
+                case 0x04: joy_msg.axes[1] =  direction; break;
+                case 0x05: joy_msg.axes[1] = -direction; break;
+                case 0x06: joy_msg.axes[0] =  direction; break;
+                case 0x07: joy_msg.axes[0] = -direction; break;
+                case 0x08: joy_msg.axes[2] =  direction; break;
+                case 0x09: joy_msg.axes[2] = -direction; break;
                 default: break;
             }
             joy_pub_->publish(joy_msg);

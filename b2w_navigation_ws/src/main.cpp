@@ -79,12 +79,14 @@ public:
         this->declare_parameter("moving_to_target_forward_speed", 0.8);
         this->declare_parameter("heading_alignment_threshold", 0.2); // 弧度，约10.14度
         this->declare_parameter("z1_arm_end_height", 0.0);
+        this->declare_parameter("z1_arm_target_pitch_deg", 90.0);
         this->declare_parameter("arrive_distance", 0.8);
         this->declare_parameter("min_distance_for_arm_task", 0.6);
         this->declare_parameter("reposition_back_distance", 0.35);
         this->declare_parameter("avoid_distance", 0.8);
         this->declare_parameter<double>("obstacle_detection_range", 1.2); 
         this->declare_parameter("arm_offset_x", 0.3487);
+        this->declare_parameter("rtk_x_offset", -0.4477);
         this->declare_parameter("rtk_hz", 10); //hz
         this->declare_parameter("distance_to_slow_down", 2.5);
         this->declare_parameter("min_useful_vyaw", 0.4);
@@ -94,12 +96,14 @@ public:
         this->get_parameter("heading_alignment_threshold", heading_alignment_threshold_);
         this->get_parameter("moving_to_target_forward_speed", moving_to_target_forward_speed_);
         this->get_parameter("z1_arm_end_height", z1_arm_end_height_);
+        this->get_parameter("z1_arm_target_pitch_deg", z1_arm_target_pitch_deg_);
         this->get_parameter("arrive_distance", arrive_distance_);
         this->get_parameter("min_distance_for_arm_task", min_distance_for_arm_task_);
         this->get_parameter("reposition_back_distance", reposition_back_distance_);
         this->get_parameter("avoid_distance", avoid_dist_);
         this->get_parameter("obstacle_detection_range", obs_range_);
         this->get_parameter("arm_offset_x", arm_offset_x_);
+        this->get_parameter("rtk_x_offset", rtk_x_offset_);
         this->get_parameter("rtk_hz", rtk_hz_);
         this->get_parameter("distance_to_slow_down", distance_to_slow_down_);
         this->get_parameter("min_useful_vyaw", min_useful_vyaw_);
@@ -116,11 +120,13 @@ public:
         RCLCPP_INFO(this->get_logger(), "  heading_alignment_threshold: %.3f rad", heading_alignment_threshold_);
         RCLCPP_INFO(this->get_logger(), " moving_to_target_forward_speed: %.3f m/s", moving_to_target_forward_speed_);
         RCLCPP_INFO(this->get_logger(), " z1_arm_end_height: %.3f m", z1_arm_end_height_);
+        RCLCPP_INFO(this->get_logger(), " z1_arm_target_pitch_deg: %.3f deg", z1_arm_target_pitch_deg_);
         RCLCPP_INFO(this->get_logger(), " arrive_distance: %.3f m", arrive_distance_);
         RCLCPP_INFO(this->get_logger(), " min_distance_for_arm_task: %.3f m", min_distance_for_arm_task_);
         RCLCPP_INFO(this->get_logger(), " reposition_back_distance: %.3f m", reposition_back_distance_);
         RCLCPP_INFO(this->get_logger(), " avoid_distance: %.3f m", avoid_dist_);
         RCLCPP_INFO(this->get_logger(), " arm_offset_x: %.4f m", arm_offset_x_);
+        RCLCPP_INFO(this->get_logger(), "rtk_x_offset: %.4f m", rtk_x_offset_);
         RCLCPP_INFO(this->get_logger(), "rtk_hz: %d", rtk_hz_);
         RCLCPP_INFO(this->get_logger(), "distance_to_slow_down: %.3f", distance_to_slow_down_);
         RCLCPP_INFO(this->get_logger(), "min_useful_vyaw: %.3f", min_useful_vyaw_);
@@ -317,16 +323,12 @@ private:
     }
     void RtkOdomCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
     {
-        // ===== 1. RTK 在 base_link 中的外参 =====
-        constexpr double RTK_X = -0.4477;  
-        constexpr double RTK_Z =  0.3762;
-        // ===== 2. 姿态快照（避免回调竞争）=====
         double rtk_x = msg->pose.position.x;
         double rtk_y = msg->pose.position.y;
         current_z_ = msg->pose.position.z;
         double yaw_ros = get_yaw_from_quaternion(msg->pose.orientation);
         current_yaw_ = yaw_ros;
-        double effective_offset = std::abs(RTK_X) ;
+        double effective_offset = std::abs(rtk_x_offset_) ;
         double base_x = rtk_x + effective_offset * std::cos(current_yaw_);
         double base_y = rtk_y + effective_offset * std::sin(current_yaw_);
         
@@ -670,11 +672,8 @@ private:
                 request->target_pose.position.x = dx_local;
                 request->target_pose.position.y = dy_local;
                 request->target_pose.position.z = target_z;
-                // 可选：设置末端朝向（例如让夹爪垂直向下）
-                // 使用四元数表示：绕 Y 轴旋转 90 度
                 tf2::Quaternion q;
-                //q.setRPY(0, 83.0 * M_PI / 180.0, 0); // 经测试，机械臂末端平面朝下的角度为83度
-                q.setRPY(0, 90.0 * M_PI / 180.0, 0); 
+                q.setRPY(0, z1_arm_target_pitch_deg_ * M_PI / 180.0, 0);
                 request->target_pose.orientation = tf2::toMsg(q);
                 /*request->target_pose.orientation.w = 0.9004;
                 request->target_pose.orientation.x = 0.0;
@@ -945,11 +944,13 @@ private:
     // 声明可配置参数（作为类成员）
     double heading_alignment_threshold_, moving_to_target_forward_speed_;
     double z1_arm_end_height_;
+    double z1_arm_target_pitch_deg_;
     double arrive_distance_;
     double min_distance_for_arm_task_;
     double reposition_back_distance_;
     double avoid_dist_, obs_range_;
     double arm_offset_x_;
+    double rtk_x_offset_;
     int rtk_hz_;
     double distance_to_slow_down_;
     double min_useful_vyaw_, max_vyaw_;
