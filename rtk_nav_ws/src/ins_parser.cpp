@@ -10,6 +10,11 @@
 #include <chrono>
 #include <mutex>
 #include <algorithm> // for trim
+#include <cstdlib>
+#include <ctime>
+#include <filesystem>
+#include <fstream>
+#include <iomanip>
 
 // Linux 串口相关头文件
 #include <termios.h>
@@ -120,10 +125,19 @@ public:
         this->declare_parameter<std::string>("port", "/dev/ttyUSB0");
         this->declare_parameter<int>("baudrate", 115200);
         this->declare_parameter<bool>("use_epsg_crs_datum", true);
+        this->declare_parameter<bool>("print_gpgga_console", true);
+        this->declare_parameter<bool>("print_all_gpgga_console", true);
+        this->declare_parameter<int>("print_gpgga_interval", 5);
+        this->declare_parameter<std::string>("gpgga_raw_log_dir", default_log_dir());
 
         std::string port = this->get_parameter("port").as_string();
         int baudrate = this->get_parameter("baudrate").as_int();
         use_epsg_crs_datum_ = this->get_parameter("use_epsg_crs_datum").as_bool();
+        print_gpgga_console_ = this->get_parameter("print_gpgga_console").as_bool();
+        print_all_gpgga_console_ = this->get_parameter("print_all_gpgga_console").as_bool();
+        const int64_t print_gpgga_interval_param = this->get_parameter("print_gpgga_interval").as_int();
+        print_gpgga_interval_ = static_cast<int>(std::max<int64_t>(1, print_gpgga_interval_param));
+        gpgga_raw_log_dir_ = this->get_parameter("gpgga_raw_log_dir").as_string();
 
         pub_fix_ = this->create_publisher<geometry_msgs::msg::PointStamped>("fix", 10);
         utm_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("utm_fix", 10);
@@ -132,7 +146,12 @@ public:
 
         RCLCPP_INFO(this->get_logger(), "=== INS Parser Node Started ===");
         RCLCPP_INFO(this->get_logger(), "Port: %s, Baud: %d", port.c_str(), baudrate);
+        RCLCPP_INFO(this->get_logger(), "print_gpgga_console: %s", print_gpgga_console_ ? "true" : "false");
+        RCLCPP_INFO(this->get_logger(), "print_all_gpgga_console: %s", print_all_gpgga_console_ ? "true" : "false");
+        RCLCPP_INFO(this->get_logger(), "print_gpgga_interval: %d", print_gpgga_interval_);
+        RCLCPP_INFO(this->get_logger(), "GPGGA raw file logging is always enabled.");
         RCLCPP_INFO(this->get_logger(), "Waiting for $GPGGA and #HEADINGA messages...");
+        open_gpgga_raw_log();
 
         if (!serial_.open(port, baudrate)) {
             RCLCPP_ERROR(this->get_logger(), "Failed to open serial port. Exiting.");
@@ -201,9 +220,11 @@ private:
 
     void parse_gpgga(const std::string& line) {
         gpgga_count_++;
-        if (gpgga_count_ <= 5) {
-             RCLCPP_INFO(this->get_logger(), "[Raw GPGGA] %s", line.c_str());
+        const bool should_print_gpgga = should_print_gpgga_console();
+        if (should_print_gpgga) {
+             RCLCPP_INFO(this->get_logger(), "[Raw GPGGA #%d] %s", gpgga_count_, line.c_str());
         }
+        write_gpgga_log("RAW", line);
 
         std::string data_part = line;
         size_t star_pos = data_part.find('*');
@@ -215,7 +236,10 @@ private:
         
         // GPGGA 最少需要 10 个字段 (Index 0-9)
         if (fields.size() < 10) {
-            if (gpgga_count_ <= 5) RCLCPP_WARN(this->get_logger(), "GPGGA: Too few fields (%zu)", fields.size());
+            if (should_print_gpgga) {
+                RCLCPP_WARN(this->get_logger(), "GPGGA: Too few fields (%zu)", fields.size());
+            }
+            write_gpgga_log("WARN", "Too few fields: " + std::to_string(fields.size()));
             return;
         }
 
@@ -265,9 +289,14 @@ private:
                 }
             }
 
-            if (gpgga_count_ <= 5 || (gpgga_count_ % 50 == 0)) {
-                RCLCPP_INFO(this->get_logger(), "GPGGA Parsed: Qual=%d, Lat=%.6f, Lon=%.6f, Alt=%.2f", 
-                            current_data.gps_qual, current_data.lat, current_data.lon, current_data.alt);
+            std::ostringstream parsed_oss;
+            parsed_oss << "Qual=" << current_data.gps_qual
+                       << ", Lat=" << std::fixed << std::setprecision(9) << current_data.lat
+                       << ", Lon=" << std::fixed << std::setprecision(9) << current_data.lon
+                       << ", Alt=" << std::fixed << std::setprecision(3) << current_data.alt;
+            write_gpgga_log("PARSED", parsed_oss.str());
+            if (should_print_gpgga) {
+                RCLCPP_INFO(this->get_logger(), "GPGGA Parsed #%d: %s", gpgga_count_, parsed_oss.str().c_str());
             }
 
             // 如果只有 GPGGA 来了，也发布一下 fix 话题用于调试
@@ -277,12 +306,78 @@ private:
             }
 
         } catch (const std::exception& e) {
-            RCLCPP_ERROR_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "GPGGA Parse Exception: %s", e.what());
-            if (fields.size() > 6) {
+            write_gpgga_log("ERROR", std::string("Parse exception: ") + e.what());
+            if (should_print_gpgga) {
+                RCLCPP_ERROR(this->get_logger(), "GPGGA Parse Exception: %s", e.what());
+            }
+            if (should_print_gpgga && fields.size() > 6) {
                 RCLCPP_ERROR(this->get_logger(), "Fields around quality: [%s], [%s], [%s]", 
                              fields[5].c_str(), fields[6].c_str(), fields[7].c_str());
             }
         }
+    }
+
+    bool should_print_gpgga_console() const {
+        if (!print_gpgga_console_) {
+            return false;
+        }
+        if (print_all_gpgga_console_) {
+            return true;
+        }
+        return gpgga_count_ == 1 || (gpgga_count_ % print_gpgga_interval_ == 0);
+    }
+
+    std::string default_log_dir() const {
+        const char *home_env = std::getenv("HOME");
+        const std::string home = home_env && home_env[0] != '\0' ? home_env : "/home/test";
+        return home + "/logs/ins_parser_runs";
+    }
+
+    std::string run_timestamp() const {
+        const std::time_t now = std::time(nullptr);
+        std::tm tm_buf{};
+        localtime_r(&now, &tm_buf);
+        std::ostringstream oss;
+        oss << std::put_time(&tm_buf, "%Y%m%d_%H%M%S") << "_" << getpid();
+        return oss.str();
+    }
+
+    std::string log_timestamp() const {
+        const std::time_t now = std::time(nullptr);
+        std::tm tm_buf{};
+        localtime_r(&now, &tm_buf);
+        std::ostringstream oss;
+        oss << std::put_time(&tm_buf, "%F %T");
+        return oss.str();
+    }
+
+    void open_gpgga_raw_log() {
+        try {
+            std::filesystem::create_directories(gpgga_raw_log_dir_);
+            gpgga_raw_log_path_ = gpgga_raw_log_dir_ + "/gpgga_raw_" + run_timestamp() + ".log";
+            gpgga_raw_log_.open(gpgga_raw_log_path_, std::ios::out | std::ios::app);
+            if (!gpgga_raw_log_.is_open()) {
+                RCLCPP_ERROR(this->get_logger(), "Failed to open GPGGA raw log: %s", gpgga_raw_log_path_.c_str());
+                return;
+            }
+            gpgga_raw_log_ << "=== ins_parser GPGGA raw log started at "
+                           << log_timestamp() << " ===\n";
+            gpgga_raw_log_.flush();
+            RCLCPP_INFO(this->get_logger(), "GPGGA raw log: %s", gpgga_raw_log_path_.c_str());
+        } catch (const std::exception& e) {
+            RCLCPP_ERROR(this->get_logger(), "Failed to initialize GPGGA raw log: %s", e.what());
+        }
+    }
+
+    void write_gpgga_log(const std::string& tag, const std::string& text) {
+        if (!gpgga_raw_log_.is_open()) {
+            return;
+        }
+        gpgga_raw_log_ << "[" << log_timestamp() << "] "
+                       << "[" << tag << "] "
+                       << "#" << gpgga_count_ << " "
+                       << text << "\n";
+        gpgga_raw_log_.flush();
     }
 
     void parse_headinga(const std::string& line) {
@@ -603,6 +698,12 @@ private:
     int utm_zone_;
     bool utm_northp_;
     bool use_epsg_crs_datum_;
+    bool print_gpgga_console_;
+    bool print_all_gpgga_console_;
+    int print_gpgga_interval_;
+    std::string gpgga_raw_log_dir_;
+    std::string gpgga_raw_log_path_;
+    std::ofstream gpgga_raw_log_;
     std::mutex data_mutex_;
     GnssData gnss_data_;
     

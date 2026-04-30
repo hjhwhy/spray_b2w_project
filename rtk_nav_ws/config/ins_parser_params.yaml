@@ -1,0 +1,9 @@
+ins_parser_node:
+  ros__parameters:
+    port: "/dev/ttyTHS2"
+    baudrate: 115200
+    use_epsg_crs_datum: true
+    print_gpgga_console: true       # 是否在控制台打印 GPGGA raw/parsed
+    print_all_gpgga_console: true   # true=每条都打印；false=按 print_gpgga_interval 间隔打印
+    print_gpgga_interval: 5         # print_all_gpgga_console=false 时，每隔 N 条打印一次
+    gpgga_raw_log_dir: "/home/test/logs/ins_parser_runs"

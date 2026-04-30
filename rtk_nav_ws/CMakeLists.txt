@@ -34,4 +34,10 @@ install(TARGETS
   dog_controller
   DESTINATION lib/${PROJECT_NAME})
 
+install(DIRECTORY
+  config
+  DESTINATION share/${PROJECT_NAME}
+  FILES_MATCHING PATTERN "*.yaml"
+)
+
 ament_package()

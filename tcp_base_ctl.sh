@@ -17,6 +17,7 @@ TF_LOG="${RUN_LOG_DIR}/tf_publisher.log"
 GNSS_LOG="${RUN_LOG_DIR}/ins_parser.log"
 Z1_CTRL_LOG="${RUN_LOG_DIR}/z1_ctrl.log"
 Z1_ARM_LOG="${RUN_LOG_DIR}/z1.log"
+INS_PARAMS_FILE="${ROBOT_HOME}/rtk_nav_ws/install/ins_driver_node/share/ins_driver_node/config/ins_parser_params.yaml"
 TELEOP_PARAMS_FILE="${ROBOT_HOME}/b2w_navigation_ws/install/b2w_navigation_controller/share/b2w_navigation_controller/config/b2w_controller_params.yaml"
 TELEOP_REL="b2w_navigation_ws/install/b2w_navigation_controller/lib/b2w_navigation_controller/b2w_teleop_node"
 TCP_REL="app_ws/install/robot_tcp/lib/robot_tcp/robot_tcp_node"
@@ -336,7 +337,13 @@ echo "[$(date '+%F %T')] tf_publisher launcher pid=$TF_PID"
 sleep 1
 
 echo "启动司南 GNSS 基础节点"
-ros2 run ins_driver_node ins_parser --ros-args -p port:=/dev/ttyTHS2 -p baudrate:=115200 >>"$GNSS_LOG" 2>&1 &
+if [[ -f "$INS_PARAMS_FILE" ]]; then
+    echo "[$(date '+%F %T')] INS_PARAMS_FILE=$INS_PARAMS_FILE"
+    ros2 run ins_driver_node ins_parser --ros-args --params-file "$INS_PARAMS_FILE" >>"$GNSS_LOG" 2>&1 &
+else
+    echo "[$(date '+%F %T')] 未找到 INS_PARAMS_FILE=$INS_PARAMS_FILE，使用默认 GNSS 参数。"
+    ros2 run ins_driver_node ins_parser --ros-args -p port:=/dev/ttyTHS2 -p baudrate:=115200 >>"$GNSS_LOG" 2>&1 &
+fi
 GNSS_PID=$!
 echo "[$(date '+%F %T')] ins_parser pid=$GNSS_PID"
 sleep 1
