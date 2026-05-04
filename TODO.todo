@@ -1,0 +1,21 @@
+RTK 点位录入后续处理方式
+
+背景：
+- 丰疆 RTK 显示的 Easting/Northing 直接写入 gnss_waypoints.txt 后，司南 RTK 用该点定位会产生约 1.06 m 平面偏差。
+- 单点验证表明：丰疆原始经纬度与司南原始经纬度基本一致；丰疆经纬度按狗端 EPSG:2100 转换后，与司南 record_epsg_waypoint 结果约 10 cm 差异。
+- 问题主要来自丰疆设备内部平面坐标转换与狗端 EPSG:2100 转换不完全一致，而不是丰疆原始经纬度本身。
+
+TODO:
+1. 不再直接使用丰疆 RTK 显示的 Easting/Northing 录入 gnss_waypoints.txt。
+2. 丰疆 RTK 只用于采集 WGS84 原始经纬度。
+3. 新增或整理一个点位转换工具：输入丰疆经纬度，输出狗端 gnss_waypoints.txt 格式。
+4. 转换工具必须使用狗端同一套 EPSG:4326 -> EPSG:2100 逻辑生成 x/y。
+5. z 字段使用司南 RTK 体系下的 z，不直接使用丰疆 Elevation。
+6. 如果作业区域地面高度变化不大，z 可使用附近司南点的固定值或区域平均值。
+7. 如果喷涂高度对地形敏感，需要用司南 RTK 在作业区域补采若干高度参考点，再按区域赋值或插值。
+8. 生成 gnss_waypoints.txt 后，抽取 2-3 个点现场复核：丰疆经纬度转换点与司南现场定位误差应接近 10 cm 级，而不是 1 m 级。
+9. 将最终点位生成流程写入 CLAUDE.md 或部署说明，避免后续再次手动录入丰疆平面坐标。
+
+参考文档：
+- rtk_nav_ws/issue.md
+- rtk_nav_ws/issue_chapters_1_7.pdf
