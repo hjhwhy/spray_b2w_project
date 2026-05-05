@@ -3,7 +3,28 @@ ins_parser_node:
     port: "/dev/ttyTHS2"
     baudrate: 115200
     use_epsg_crs_datum: true
+    use_hepos_grid_correction: true
+    hepos_e_grid_path: "/home/test/rtk_nav_ws/fj_dynamic/dE_2km_V1-0.egrd"
+    hepos_n_grid_path: "/home/test/rtk_nav_ws/fj_dynamic/dN_2km_V1-0.ngrd"
+    hepos_grid_spacing_m: 2000.0
+    hepos_grid_origin_x: -64400.0
+    hepos_grid_origin_y: 3840000.0
+    hepos_grid_x_increases_east: true
+    hepos_grid_y_increases_north: true
+    hepos_grid_value_in_cm: true
+    use_hepos_local_offset_fallback: false
+    hepos_local_offset_e: 0.3792
+    hepos_local_offset_n: 0.9843
     print_gpgga_console: true       # 是否在控制台打印 GPGGA raw/parsed
     print_all_gpgga_console: true   # true=每条都打印；false=按 print_gpgga_interval 间隔打印
     print_gpgga_interval: 5         # print_all_gpgga_console=false 时，每隔 N 条打印一次
     gpgga_raw_log_dir: "/home/test/logs/ins_parser_runs"
+    epsg2100_transform_mode: "proj_epsg2100"
+    hepos_helmert_dx: 203.437
+    hepos_helmert_dy: -73.461
+    hepos_helmert_dz: -243.594
+    hepos_helmert_rx_arcsec: -0.17
+    hepos_helmert_ry_arcsec: -0.06
+    hepos_helmert_rz_arcsec: -0.151
+    hepos_helmert_scale_ppm: 0.0
+    hepos_helmert_convention: "position_vector"
