@@ -375,7 +375,7 @@ TELEOP_PID=$!
 echo "[$(date '+%F %T')] b2w_teleop_node pid=$TELEOP_PID"
 
 echo "启动 app 通讯"
-"$TCP_BIN" > >(tee -a "$TCP_LOG") 2>&1 &
+"$TCP_BIN" >>"$TCP_LOG" 2>&1 &
 TCP_PID=$!
 echo "[$(date '+%F %T')] robot_tcp_node pid=$TCP_PID"
 

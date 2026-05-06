@@ -1,6 +1,16 @@
 #!/bin/bash
 
-mkdir -p logs
+ROBOT_HOME="${ROBOT_HOME:-/home/test}"
+LOG_DIR="${ROBOT_HOME}/logs"
+RUN_ID="$(date '+%Y%m%d_%H%M%S')_$$"
+RUN_LOG_DIR="${LOG_DIR}/start_all_runs/${RUN_ID}"
+LATEST_LOG_LINK="${LOG_DIR}/start_all_latest"
+NAV_LOG="${RUN_LOG_DIR}/b2w_navigation.log"
+PROBE_LOG="${RUN_LOG_DIR}/emergency_stop_probe.log"
+
+mkdir -p "$RUN_LOG_DIR"
+ln -sfn "$RUN_LOG_DIR" "$LATEST_LOG_LINK"
+
 PID_FILE="/tmp/start_all.pid"
 PGID_FILE="/tmp/start_all.pgid"
 READY_FILE="/tmp/start_all.ready"
@@ -110,7 +120,6 @@ trap cleanup SIGINT SIGTERM
 # 让脚本在当前 shell 中支持 ros2 环境
 source /opt/ros/humble/setup.bash
 
-ROBOT_HOME="${ROBOT_HOME:-/home/test}"
 WORKSPACES=(
     "$ROBOT_HOME/colcon_ws/install/setup.bash"
     "$ROBOT_HOME/z1_move_ws/install/setup.bash"
@@ -171,7 +180,7 @@ fi
 sleep 1
 
 echo "启动 b2w 主控节点"
-ros2 launch b2w_navigation_controller b2w_navigation.launch > logs/b2w_navigation.log 2>&1 &
+ros2 launch b2w_navigation_controller b2w_navigation.launch > "$NAV_LOG" 2>&1 &
 NAV_PID=$!
 PIDS+=($!)
 sleep 1
@@ -180,7 +189,7 @@ echo "start_all.sh PID: $$"
 echo "b2w_navigation.launch PID: $NAV_PID"
 
 # 清除旧 probe 日志，避免 else 分支误读上一次的探测结果
-rm -f logs/emergency_stop_probe.log
+rm -f "$PROBE_LOG"
 
 echo "等待 b2w 主控服务就绪..."
 service_ready=0
@@ -204,24 +213,24 @@ if [ "$service_ready" -eq 1 ]; then
 
     probe_start_ts=$(date +%s)
     timeout 5s ros2 service call /erase_emergency_stop std_srvs/srv/Trigger "{}" \
-        > logs/emergency_stop_probe.log 2>&1 || true
+        > "$PROBE_LOG" 2>&1 || true
     probe_end_ts=$(date +%s)
-    if grep -q "Trigger_Response" logs/emergency_stop_probe.log 2>/dev/null; then
+    if grep -q "Trigger_Response" "$PROBE_LOG" 2>/dev/null; then
         probe_ok=1
         echo "b2w 主控服务探测调用成功，耗时 $((probe_end_ts - probe_start_ts))s。"
         echo "probe 摘要："
-        grep -E "waiting for service|requester:|Trigger_Response|success=|message=" logs/emergency_stop_probe.log 2>/dev/null || true
+        grep -E "waiting for service|requester:|Trigger_Response|success=|message=" "$PROBE_LOG" 2>/dev/null || true
     else
         echo "警告：b2w 主控服务探测调用未拿到标准响应，但不终止主流程。"
         echo "探测调用耗时 $((probe_end_ts - probe_start_ts))s。"
         echo "当前 emergency stop probe 输出："
-        tail -n 40 logs/emergency_stop_probe.log 2>/dev/null || true
+        tail -n 40 "$PROBE_LOG" 2>/dev/null || true
     fi
 else
     if ! kill -0 "$NAV_PID" 2>/dev/null; then
         echo "错误：b2w_navigation.launch 进程已退出，主控不可用，主流程无法执行。"
         echo "最近的 b2w_navigation.log："
-        tail -n 80 logs/b2w_navigation.log 2>/dev/null || true
+        tail -n 80 "$NAV_LOG" 2>/dev/null || true
         echo "正在清理已启动的其他节点..."
         cleanup 1
         # cleanup 已 exit，下面不会执行
@@ -229,7 +238,7 @@ else
     echo "警告：等待 /emergency_stop 和 /erase_emergency_stop 超时，但 b2w_navigation.launch 仍在运行；"
     echo "      service discovery 可能尚未完成，继续运行（不退出）。"
     echo "最近的 b2w_navigation.log："
-    tail -n 80 logs/b2w_navigation.log 2>/dev/null || true
+    tail -n 80 "$NAV_LOG" 2>/dev/null || true
 fi
 
 echo "start_all 启动总耗时: $(( $(date +%s) - SCRIPT_START_TS ))s"
