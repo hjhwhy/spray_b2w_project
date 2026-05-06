@@ -314,3 +314,70 @@ APP ↔ 主控通过 TCP 长连接通信：
 - 使用 EPSG 2100（希腊 GGRS87 / Greek Grid）投影
 - 使用 `proj` 库进行 WGS84 ↔ EPSG2100 转换
 - 当前 URDF 中的固定链路：`base_link` → `z1_base`，`base_link` → `lidar_link`，`base_link` → `rtk_link`
+
+## 坐标数据变化链路
+
+参考 `rtk_nav_ws/issue.md`（HEPOS 5 点验证报告）和 commit `391d7f4`（接入 HEPOS 网格修正）。当前导航实际使用的是 **PROJ EPSG:2100 + HEPOS plane grid 修正**，与丰疆 RTK 控制器显示坐标对齐到毫米级残差。
+
+### 完整链路（INS → 发布）
+
+`rtk_nav_ws/src/ins_parser.cpp` 和 `gnss_driver_ws/src/pub_rtk_save_pt_node.cpp` 共用同一套链路：
+
+```
+司南 INS 串口 (/dev/ttyTHS2, 115200)
+  └─ NMEA + 私有报文 → (lat, lon, alt, yaw_deg, heading_valid)
+
+[Step 1] PROJ 基础投影  EPSG:4326 → EPSG:2100
+  ├─ use_epsg_crs_datum = true（YAML 默认）
+  │     proj_create_crs_to_crs("EPSG:4326","EPSG:2100") + proj_normalize_for_visualization
+  │     自动叠加 GGRS87↔WGS84 datum 平移
+  └─ use_epsg_crs_datum = false（备用）
+        +proj=tmerc +lat_0=0 +lon_0=24 +k=0.9996 +x_0=500000 +ellps=GRS80 +no_defs
+        仅做投影，无 datum 平移
+  → (epsg_x_proj, epsg_y_proj)        // 称为 "PROJ default" 坐标
+
+[Step 2] HEPOS plane grid 修正（use_hepos_grid_correction = true，YAML 实际开启）
+  ├─ 读取 rtk_nav_ws/fj_dynamic/dE_2km_V1-0.egrd, dN_2km_V1-0.ngrd
+  ├─ 网格参数：spacing=2000 m, origin=(-64400, 3840000), 值单位 cm
+  ├─ 用 (epsg_x_proj, epsg_y_proj) 作为索引，双线性插值得到 dE_m, dN_m
+  └─ epsg_x = epsg_x_proj + dE_m;  epsg_y = epsg_y_proj + dN_m
+  → (epsg_x, epsg_y)                  // 称为 "HEPOS-correct ΕΓΣΑ87" 坐标，与丰疆控制器显示残差 ~4 mm
+
+[Step 2.5] TM07（仅诊断）
+  project_to_tm07() 同时输出，不进入任何 publish，仅打印用于排查
+
+[Step 3] 航向转换（INS → ROS）
+  yaw_ros_deg = 90.0 - yaw_deg        // INS 北向 0°、顺时针正 → ROS 东向 0°、逆时针正
+  归一化到 (-π, π]，再转为 tf2::Quaternion
+
+[Step 4] 发布
+  /fix          PointStamped(lon, lat, alt)            // 原始经纬度，调试
+  /utm_fix      PoseStamped(UTM E, UTM N, alt) + quat   // 旧链路保留，主线已不用
+  /epsg_position PoseStamped(epsg_x, epsg_y, alt) + quat // 主导航唯一输入源
+  /gps          NavSatFix(lat, lon, alt)
+```
+
+每帧链路输出会被打印为 `COORD_CHAIN ... EPSG2100_PROJ ... HEPOS(...) EPSG2100_FINAL ...`，可在日志中直接看到每一阶段坐标。
+
+### 下游消费
+
+- `b2w_navigation_ws/src/main.cpp` 中的 `b2w_nav_node` **只**订阅 `/epsg_position`，并按 YAML 中 `rtk_x_offset`（默认 `-0.4477`）把 RTK 天线坐标平移回 `base_link`。
+- `gnss_waypoints.txt` 中的目标点必须与 `/epsg_position` 在同一坐标框架，因此**也必须经过 HEPOS plane grid 修正**，否则会出现约 1 m 的系统性偏差（详见 `issue.md §5/§6`）。
+
+### 点位录入流程（HEPOS 修正接入后，commit `391d7f4` 起生效）
+
+狗端 `use_hepos_grid_correction=true` 接入 HEPOS plane grid 后，狗端 `/epsg_position` 的 `(x, y)` 与丰疆控制器显示的 `Easting/Northing` 在同一 HEPOS-correct ΕΓΣΑ87 平面框架下，残差量级 ≤ 10 cm（`issue.md §6.3` 的 5 点验证为 ~4 mm）。因此：
+
+- ✅ **可以直接把丰疆控制器显示的 `Easting/Northing` 录入 `gnss_waypoints.txt` 的 `x/y` 字段**。
+- ✅ 司南 RTK 通过 `record_epsg_waypoint.py` 现场录点同样可用，输出已经走完整 `EPSG:4326 → EPSG:2100 → HEPOS grid` 链路。
+- ✅ 也可以用丰疆 RTK 只采 WGS84 经纬度，离线通过狗端同一套链路（如 `convert_var_point_no_datum.py` / `convert_gps_convert_to_csv.py`）转换得到 `x/y`，三种来源等价。
+- ⚠️ **前置条件**：录入丰疆显示坐标前，确认狗端 YAML `use_hepos_grid_correction=true` 且 `fj_dynamic/dE_2km_V1-0.egrd`、`dN_2km_V1-0.ngrd` 在配置路径下可读；若关闭 HEPOS，狗端坐标会退回 PROJ default，与丰疆显示值再次出现 ~1 m 偏差。
+- ⚠️ `z` 字段仍使用司南 RTK 体系（与 `/epsg_position.z` 同源），**不直接使用丰疆 `Elevation`**：两者高程基准不同（丰疆 184.143 vs 司南 223.5418，落点文件 z=185.077），混用会引入米级偏差。地形不敏感时可用区域均值或邻近司南点 z。
+- 抽检建议：录入后挑 2–3 个点现场复核，狗端到达位置与目标点应在 10 cm 量级；若出现 ~1 m 偏差，先排查 HEPOS 配置是否生效，再排查高程字段是否被混用。
+
+### HEPOS 修正涉及文件
+
+- `rtk_nav_ws/fj_dynamic/dE_2km_V1-0.egrd` / `dN_2km_V1-0.ngrd` — 平面格网修正量（2 km 间距，cm 单位）
+- `rtk_nav_ws/fj_dynamic/GEOID_GR.GRD` — 大地水准面格网（高程修正，当前未接入）
+- `rtk_nav_ws/fj_dynamic/parsms.json` — 丰疆参数文件
+- `rtk_nav_ws/include/hepos_grid_corrector.hpp` — 双线性插值实现，被 `ins_parser.cpp` 与 `pub_rtk_save_pt_node.cpp` 共用
