@@ -552,6 +552,7 @@ private:
                 RCLCPP_INFO(this->get_logger(), "Distance Error:     %.4f m", distance_to_target);
                 RCLCPP_INFO(this->get_logger(), "=========================================");
                 arm_wait_rtk_seq_ = rtk_update_seq_;
+                arm_rtk_buf_.clear();
                 state_ = WAITING_FOR_FRESH_RTK;
                 sport_client_.Move(0, 0, 0); 
                 return; 
@@ -620,12 +621,36 @@ private:
         case WAITING_FOR_FRESH_RTK:
         {
             sport_client_.Move(0, 0, 0);
-            if (rtk_update_seq_ <= arm_wait_rtk_seq_) {
+            // A2: 等 ARM_RTK_FRAMES 帧新 RTK，计算均值后再触发机械臂
+            // arm_wait_rtk_seq_ 是停车时的基准序号，每收集一帧后 buf.size() +1
+            if (rtk_update_seq_ <= arm_wait_rtk_seq_ + static_cast<uint64_t>(arm_rtk_buf_.size())) {
                 RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 500,
-                    "Waypoint reached. Waiting for one fresh RTK frame before arm task...");
+                    "Collecting RTK frames for arm task: %zu/%d",
+                    arm_rtk_buf_.size(), ARM_RTK_FRAMES);
                 return;
             }
-            RCLCPP_INFO(this->get_logger(), "Fresh RTK frame received. Start arm task.");
+            // 新帧到了，入 buffer
+            arm_rtk_buf_.push_back({current_x_, current_y_,
+                                    std::sin(current_yaw_), std::cos(current_yaw_)});
+            if (static_cast<int>(arm_rtk_buf_.size()) < ARM_RTK_FRAMES) {
+                return;
+            }
+            // 收满 ARM_RTK_FRAMES 帧，计算平面均值 + yaw 圆周均值
+            double sum_x = 0, sum_y = 0, sum_sin = 0, sum_cos = 0;
+            for (const auto & s : arm_rtk_buf_) {
+                sum_x   += s.x;
+                sum_y   += s.y;
+                sum_sin += s.sin_yaw;
+                sum_cos += s.cos_yaw;
+            }
+            arm_avg_x_   = sum_x / ARM_RTK_FRAMES;
+            arm_avg_y_   = sum_y / ARM_RTK_FRAMES;
+            arm_avg_yaw_ = std::atan2(sum_sin, sum_cos);
+            arm_rtk_buf_.clear();
+            RCLCPP_INFO(this->get_logger(),
+                "RTK %d-frame avg ready: (%.4f, %.4f) yaw=%.2f°",
+                ARM_RTK_FRAMES, arm_avg_x_, arm_avg_y_,
+                arm_avg_yaw_ * 180.0 / M_PI);
             state_ = EXECUTING_ARM_TASK;
             return;
         }
@@ -650,12 +675,15 @@ private:
             }
             // 第一次进入：关闭避障 + 发起机械臂动作
             if (!arm_task_requested_) {
-                // === 计算机械臂底座 z1_base 在世界坐标系的位置 ===
-                double robot_yaw = current_yaw_;
-                const double arm_offset_x = arm_offset_x_; 
-                const double arm_offset_z = 0.05;   // unused for 2D, but noted
-                double z1_world_x = current_x_ + arm_offset_x * std::cos(robot_yaw);
-                double z1_world_y = current_y_ + arm_offset_x * std::sin(robot_yaw);
+                // === A2: 使用多帧 RTK 均值（已在 WAITING_FOR_FRESH_RTK 计算）===
+                double robot_yaw = arm_avg_yaw_;
+                const double arm_offset_x = arm_offset_x_;
+                double z1_world_x = arm_avg_x_ + arm_offset_x * std::cos(robot_yaw);
+                double z1_world_y = arm_avg_y_ + arm_offset_x * std::sin(robot_yaw);
+                RCLCPP_INFO(this->get_logger(),
+                    "ARM_TRIGGER base=(%.4f,%.4f) yaw=%.2f° z1_world=(%.4f,%.4f) target=(%.4f,%.4f)",
+                    arm_avg_x_, arm_avg_y_, robot_yaw * 180.0 / M_PI,
+                    z1_world_x, z1_world_y, target_x_, target_y_);
                 // === 计算目标点相对于 z1_base 的局部坐标 ===
                 double dx_world = target_x_ - z1_world_x;
                 double dy_world = target_y_ - z1_world_y;
@@ -960,6 +988,12 @@ private:
     rclcpp::Time last_rtk_update_time_;
     uint64_t rtk_update_seq_ = 0;
     uint64_t arm_wait_rtk_seq_ = 0;
+
+    // A2: 多帧 RTK 均值（在 WAITING_FOR_FRESH_RTK 里采集，EXECUTING_ARM_TASK 里使用）
+    struct RtkSample { double x, y, sin_yaw, cos_yaw; };
+    static constexpr int ARM_RTK_FRAMES = 5;
+    std::vector<RtkSample> arm_rtk_buf_;
+    double arm_avg_x_ = 0.0, arm_avg_y_ = 0.0, arm_avg_yaw_ = 0.0;
 
     sensor_msgs::msg::PointCloud2 makeWaypointCloud(size_t from, size_t to)
     {
