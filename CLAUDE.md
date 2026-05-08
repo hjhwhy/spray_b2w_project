@@ -216,7 +216,7 @@ journalctl -u tcp_base_ctl.service -f
 
 - `/dev/ttyTHS1` — RS485 继电器（需通过 `tac3kp_uart_mode_config.sh 485` 设为 485 模式，权限 777）
 - `/dev/ttyTHS2` — 司南 RTK 串口（波特率 115200，权限 777）
-- B2W 通信通过 DDS（Unitree SDK2），需配置网络接口（eth2 等）
+- B2W 通信通过 DDS（Unitree SDK2），网卡见下方“网络与端口”。
 - Z1 SDK 库为 ARM64 预编译：`z1_sdk/lib/libZ1_SDK_aarch64`
 - Z1 控制器二进制部署路径：`/home/test/z1_controller/build/z1_ctrl`（机器人本机路径）
 - Z1机械臂手动调整并恢复零位方法：  
@@ -226,6 +226,43 @@ journalctl -u tcp_base_ctl.service -f
   再按照https://support.unitree.com/home/zh/Z1_developer/keyboard 中的JOINTCTRL 模式，长按键盘直接控制关节运动，直到关节刻度对齐，对齐后ctrl_c 关闭终端
   断电重启
 - 导航大师配置： 4G配置中APN需要改成 internet，改完后能连上网
+
+## 网络与端口
+
+### 拓扑与接口对照表（2026-05-08 现场实测）
+
+| 用途 | 接口 | 主机 IP | 对端设备 IP / MAC | 端口 | 配置来源 |
+|---|---|---|---|---|---|
+| 机器人 WiFi AP（热点）| `wlan0` | `192.168.88.1/24` | 手机 / APP 客户端 | — | `01-wifi-ap.yaml`（**唯一在 netplan 里的**）|
+| Z1 机械臂下位机（z1_ctrl 主连）| `eth1`（100 Mb/s）| `192.168.122.222/24` | `192.168.122.110` / `00:80:fb:5e:ad:49` | UDP `8881` | NM `Wired connection 2` + `z1_controller/config/config.xml` |
+| **B2W 狗 DDS 通信（Unitree SDK2）** | **`eth2`（1000 Mb/s）** | **`192.168.123.222/24`** | **`192.168.123.161` / `48:21:0b:3d:4a:2e`** | — | NM `Wired connection 3` + `tcp_base_ctl.sh:369,372` + `b2w_navigation_ws/launch/b2w_navigation.launch:20` |
+| Z1 出厂 IP 设置工具（一次性写入 MCU）| 临时手配 | — | `192.168.123.110` | UDP `8880` | `z1_controller/unitreeArmTools.py` |
+| APP / 遥控器 TCP 服务（机器人侧监听）| 任意 | — | — | TCP `9002`（参数 `listen_port`）| `app_ws/src/app_node.cpp:45` |
+| 4G 上网（默认路由）| `wwan0` | DHCP `192.168.225.x/22` | 运营商 | — | NM `Wired connection 4`，APN `internet` |
+| RSLidar RSAIRY 默认配置（单播）| 不绑定主机地址 | — | — | MSOP `6699`、DIFOP `7788` | `robose_airy_ws/src/rslidar_sdk/config/config.yaml` |
+| RSLidar 备用配置（双雷达组播）| 主机 `10.21.31.100` | — | 组播组 `224.10.10.201/202` | MSOP `6691/6692`、DIFOP `7781/7782` | `robose_airy_ws/src/rslidar_sdk/config/config_trans.yaml` |
+| `eth0` | DOWN | `192.168.1.102/24`（残留配置）| — | — | NM `Wired connection 1`，物理无线，无效 |
+
+完整拓扑图、ARP 证据和换口故障复盘见 `logs/5-8/network_topology.md`。
+
+注意事项：
+
+- **网卡 IP 的真实信源是 `/etc/NetworkManager/system-connections/Wired connection N.nmconnection`，不是 netplan**。netplan 里只有 `wlan0`，所有 eth* 都靠 NetworkManager 维护静态 IP。
+- **狗本体上多个 RJ45 槽中只有一个内部走线接通 DDS**。5-8 现场把网线从狗端有效槽换到另一个槽，整条链路在狗那一头就断了，和 IPC 端用什么接口名无关。狗身上"对外 DDS 槽"是固定的，**不要换槽**；排查链路先在狗端拔插测 `ethtool eth2 \| grep "Link detected"`。
+- **NetworkManager 用 `interface-name=ethN` 把配置绑到接口名而不是 MAC**——这是日后**改 IPC 端**接口名（如把 `eth2` 改 `eth1`）时会撞的独立坑：eth1 仍只挂 122.x 段，狗的 123.x 段不会跟着搬过去。**与 5-8 故障无关**，但作为通用警示保留。换口正确做法见 `logs/5-8/network_topology.md` §5。
+- `b2w_nav_node` / `b2w_teleop_node` 二进制必须带 `cap_net_raw+ep`，否则无法打开 `eth2`。`tcp_base_ctl.service` 的 `ExecStartPre` 会自动 `setcap`；手动编译后通过：
+
+  ```bash
+  sudo setcap cap_net_raw+ep b2w_navigation_ws/install/b2w_navigation_controller/lib/b2w_navigation_controller/b2w_nav_node
+  sudo setcap cap_net_raw+ep b2w_navigation_ws/install/b2w_navigation_controller/lib/b2w_navigation_controller/b2w_teleop_node
+  ```
+
+  排查方法见 `log_view.md`（搜 `cap_net_raw`、`eth2`）。
+- Z1 控制器下位机 IP 自 commit `d2c1b73` 起由 `192.168.123.110` 改为 `192.168.122.110`（`config.xml`）。若更换/重置 MCU，需先用 `unitreeArmTools.py`（仍默认连 `192.168.123.110:8880`）写入新 IP，再回写 `config.xml`。
+- `app_node.cpp` 只对外开 TCP `9002` 一个监听端口，机器人侧没有主动外联第三方服务；APP 端通过这条 TCP 长连接收发协议（参见“TCP 应用协议”小节）。
+- `01-wifi-ap.yaml` 是 Netplan 部署文件，将 `wlan0` 配成 AP 热点；调试时上位机/手机连入 `KifferB2wLocalLAN` 后可走 `192.168.88.0/24` 直连机器人。
+- `sport_client.launch` 的默认 `interface` 是 `lo`（仅供仿真/回环），现场启动 B2W 必须显式传 `eth2` 或使用 `b2w_navigation.launch`（已硬编码 `eth2`）。
+- RSLidar 当前没有被 `tcp_base_ctl.sh` / `start_all.sh` 自动拉起；若使用 `config_trans.yaml`，主机网卡需配置在 `10.21.31.0/24` 网段并加入对应组播组。
 
 ## 部署说明
 
