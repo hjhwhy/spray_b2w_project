@@ -46,8 +46,9 @@ cd gnss_driver_ws && colcon build && source install/setup.bash && cd ..
 
 # ── Tier 2：需要先编译unitree_sdk2，依赖 z1_move_ws + spray_path_planner_ws ──
 cd b2w_navigation_ws && colcon build && source install/setup.bash && cd ..
-# FIX：[b2w_nav_node-1] free(): invalid pointer
+# Unitree DDS 需要 raw socket 权限；手动部署/重新编译后两个二进制都要设置。
 sudo setcap  cap_net_raw+ep  b2w_navigation_ws/install/b2w_navigation_controller/lib/b2w_navigation_controller/b2w_nav_node 
+sudo setcap  cap_net_raw+ep  b2w_navigation_ws/install/b2w_navigation_controller/lib/b2w_navigation_controller/b2w_teleop_node
 
 
 # ── 无跨工作空间依赖，可任意顺序编译 ──
@@ -113,7 +114,7 @@ journalctl -u tcp_base_ctl.service -f
 
 | 工作空间 | 包名 | 功能 |
 |---------|------|------|
-| `colcon_ws` | nmea_msgs, serial | 基础依赖（需最先编译） |
+| `colcon_ws` | nmea_msgs | 基础消息依赖（需最先编译） |
 | `rtk_nav_ws` | ins_driver_node | 司南 RTK 串口解析，发布位置和方向 |
 | `gnss_driver_ws` | gnss_driver | NovAtel/司南 RTK 驱动，坐标投影 |
 | `tf_broadcast_ws` | robot_tf_broadcaster | 发布静态 TF 树（B2W→Z1→Lidar→GNSS） |
@@ -121,7 +122,8 @@ journalctl -u tcp_base_ctl.service -f
 | `b2w_navigation_ws` | b2w_navigation_controller | B2W 导航、里程计、EKF 融合 |
 | `spray_path_planner_ws` | spray_path_planner | 读点文件、生成最短路径 |
 | `rs585_ws` | rs485_node | Modbus RS485 继电器控制（喷枪） |
-| `robose_airy_ws` | rslidar_sdk | RS16 激光雷达驱动 |
+| `robose_airy_ws` | rslidar_sdk | 旧 RS16 激光雷达驱动（保留但当前未自动启动） |
+| `livox_mid360_ws` | livox_ros_driver2 | MID-360 激光雷达驱动（已放入仓库，生产链路待接入） |
 | `app_ws` | robot_tcp | TCP 长连接服务（与 APP/遥控器通信） |
 
 ## 关键 ROS 2 话题与服务
@@ -151,6 +153,8 @@ journalctl -u tcp_base_ctl.service -f
 | `b2w_navigation_ws / b2w_nav_node` | 发布 | `/motors_temperatures` | `std_msgs/msg/Float32MultiArray` | 电机温度数组 |
 | `b2w_navigation_ws / b2w_nav_node` | 发布 | `/b2w_odom` | `nav_msgs/msg/Odometry` | 主导航里程计输出 |
 | `b2w_navigation_ws / b2w_nav_node` | 发布 | `/b2w_path` | `nav_msgs/msg/Path` | 运动轨迹历史 |
+| `b2w_navigation_ws / b2w_nav_node` | 发布 | `/acquired_points` | `sensor_msgs/msg/PointCloud2` | 主导航根据当前 waypoint 状态发布已完成点云 |
+| `b2w_navigation_ws / b2w_nav_node` | 发布 | `/unacquired_points` | `sensor_msgs/msg/PointCloud2` | 主导航根据当前 waypoint 状态发布未完成点云 |
 | `b2w_navigation_ws / b2w_teleop_node` | 订阅 | `/joy` | `sensor_msgs/msg/Joy` | APP/遥控输入，直接转 Unitree 运动命令 |
 | `spray_path_planner_ws / spray_path_planner_node` | 发布 | `/progress` | `std_msgs/msg/Byte` | 当前实现实际发布 0-100，不是 0-255 |
 | `spray_path_planner_ws / spray_path_planner_node` | 发布 | `/acquired_points` | `sensor_msgs/msg/PointCloud2` | 已完成喷涂点云 |
@@ -164,7 +168,7 @@ journalctl -u tcp_base_ctl.service -f
 | `app_ws / remote_control_node` | 订阅 | `/b2w_path` | `nav_msgs/msg/Path` | 转发轨迹 |
 | `app_ws / remote_control_node` | 订阅 | `/acquired_points` | `sensor_msgs/msg/PointCloud2` | 转发已喷涂点云 |
 | `app_ws / remote_control_node` | 订阅 | `/unacquired_points` | `sensor_msgs/msg/PointCloud2` | 转发未喷涂点云 |
-| `robose_airy_ws / rslidar_sdk` | 发布 | `/scan` | `sensor_msgs/msg/LaserScan` | 当前仓库中被导航和 `dog_controller` 使用 |
+| `robose_airy_ws / rslidar_sdk` | 发布 | `/scan` | `sensor_msgs/msg/LaserScan` | 旧 RS16 驱动输出；当前导航和 `dog_controller` 仍订阅 `/scan`，但启动脚本未自动拉起雷达 |
 | `tf_broadcast_ws / robot_state_publisher` | 发布 | `/tf` | `tf2_msgs/msg/TFMessage` | 标准 `robot_state_publisher` 动态 TF 输出 |
 | `tf_broadcast_ws / robot_state_publisher` | 发布 | `/tf_static` | `tf2_msgs/msg/TFMessage` | 标准静态 TF 输出 |
 
@@ -199,9 +203,9 @@ journalctl -u tcp_base_ctl.service -f
 ### 接口注意事项
 
 - `/epsg_position` 在仓库里有两种实现：
-  - `rtk_nav_ws/ins_parser.cpp` 发布 `geometry_msgs/msg/PoseStamped`
-  - `gnss_driver_ws/pub_rtk_save_pt_node.cpp` 发布 `geometry_msgs/msg/PointStamped`
-- 当前主导航 `b2w_navigation_ws/src/main.cpp` 订阅的是 `PoseStamped` 版本，因此运行主流程时应优先启动 `rtk_nav_ws` 的 `ins_parser_node`。
+  - ✅ **主导航输入（推荐）**：`rtk_nav_ws/ins_parser.cpp` 发布 `geometry_msgs/msg/PoseStamped`，包含位置和航向。
+  - ⚠️ **辅助调试用**：`gnss_driver_ws/pub_rtk_save_pt_node.cpp` 发布 `geometry_msgs/msg/PointStamped`，仅包含坐标，不满足主导航需求。
+- 当前主导航 `b2w_navigation_ws/src/main.cpp` 订阅的是 `PoseStamped` 版本，因此运行主流程时必须启动 `rtk_nav_ws` 的 `ins_parser_node`。
 - `spray_path_planner` 当前 `/progress` 实际发布的是 `0~100` 百分比整数；如果 APP 协议仍按 `0~255` 处理，需要后续统一。
 - `/emergency_stop` 和 `/erase_emergency_stop` 由 `b2w_nav_node` 提供；`app_node.cpp` 作为客户端调用。若 `/tmp/start_all.ready` 不存在或未进入 `ready/partial`，APP 暂停/恢复会被拒绝，避免主控未就绪时误判成功。
 
@@ -217,14 +221,7 @@ journalctl -u tcp_base_ctl.service -f
 - `/dev/ttyTHS1` — RS485 继电器（需通过 `tac3kp_uart_mode_config.sh 485` 设为 485 模式，权限 777）
 - `/dev/ttyTHS2` — 司南 RTK 串口（波特率 115200，权限 777）
 - B2W 通信通过 DDS（Unitree SDK2），网卡见下方“网络与端口”。
-- Z1 SDK 库为 ARM64 预编译：`z1_sdk/lib/libZ1_SDK_aarch64`
-- Z1 控制器二进制部署路径：`/home/test/z1_controller/build/z1_ctrl`（机器人本机路径）
-- Z1机械臂手动调整并恢复零位方法：  
-  cd /home/test/z1_controller/build/ 
-  ./z1_sdk k 
-  按键盘数字2
-  再按照https://support.unitree.com/home/zh/Z1_developer/keyboard 中的JOINTCTRL 模式，长按键盘直接控制关节运动，直到关节刻度对齐，对齐后ctrl_c 关闭终端
-  断电重启
+- Z1 机械臂 SDK、手动测试、零位恢复和故障排查统一见 `z1_move_ws/README.md`。
 - 导航大师配置： 4G配置中APN需要改成 internet，改完后能连上网
 
 ## 网络与端口
@@ -243,14 +240,14 @@ journalctl -u tcp_base_ctl.service -f
 | RSLidar 备用配置（双雷达组播）| 主机 `10.21.31.100` | — | 组播组 `224.10.10.201/202` | MSOP `6691/6692`、DIFOP `7781/7782` | `robose_airy_ws/src/rslidar_sdk/config/config_trans.yaml` |
 | `eth0` | DOWN | `192.168.1.102/24`（残留配置）| — | — | NM `Wired connection 1`，物理无线，无效 |
 
-完整拓扑图、ARP 证据和换口故障复盘见 `logs/5-8/network_topology.md`。
+完整拓扑图、ARP 证据和换口故障复盘见 `docs/network_topology.md`。
 
 注意事项：
 
 - **网卡 IP 的真实信源是 `/etc/NetworkManager/system-connections/Wired connection N.nmconnection`，不是 netplan**。netplan 里只有 `wlan0`，所有 eth* 都靠 NetworkManager 维护静态 IP。
 - **狗本体上多个 RJ45 槽中只有一个内部走线接通 DDS**。5-8 现场把网线从狗端有效槽换到另一个槽，整条链路在狗那一头就断了，和 IPC 端用什么接口名无关。狗身上"对外 DDS 槽"是固定的，**不要换槽**；排查链路先在狗端拔插测 `ethtool eth2 \| grep "Link detected"`。
-- **NetworkManager 用 `interface-name=ethN` 把配置绑到接口名而不是 MAC**——这是日后**改 IPC 端**接口名（如把 `eth2` 改 `eth1`）时会撞的独立坑：eth1 仍只挂 122.x 段，狗的 123.x 段不会跟着搬过去。**与 5-8 故障无关**，但作为通用警示保留。换口正确做法见 `logs/5-8/network_topology.md` §5。
-- `b2w_nav_node` / `b2w_teleop_node` 二进制必须带 `cap_net_raw+ep`，否则无法打开 `eth2`。`tcp_base_ctl.service` 的 `ExecStartPre` 会自动 `setcap`；手动编译后通过：
+- **NetworkManager 用 `interface-name=ethN` 把配置绑到接口名而不是 MAC**——这是日后**改 IPC 端**接口名（如把 `eth2` 改 `eth1`）时会撞的独立坑：eth1 仍只挂 122.x 段，狗的 123.x 段不会跟着搬过去。**与 5-8 故障无关**，但作为通用警示保留。换口正确做法见 `docs/network_topology.md` §5。
+- `b2w_nav_node` / `b2w_teleop_node` 二进制必须带 `cap_net_raw+ep`，否则无法打开 `eth2`。当前 `tcp_base_ctl.service` 的 `ExecStartPre` 会自动给 `b2w_teleop_node` 设置权限；`b2w_nav_node` 手动编译/部署后需要单独确认或执行：
 
   ```bash
   sudo setcap cap_net_raw+ep b2w_navigation_ws/install/b2w_navigation_controller/lib/b2w_navigation_controller/b2w_nav_node
@@ -269,14 +266,13 @@ journalctl -u tcp_base_ctl.service -f
 - 机器人本机用户路径：`/home/test/`（与开发机 `/home/oneko/` 不同）
 - `tcp_base_ctl.sh` 中使用 `/home/test/z1_controller/build/` 路径启动 `z1_ctrl`，部署时需确认该二进制存在
 - `start_all.sh` 只负责主任务 `b2w_navigation.launch`；基础节点由 `tcp_base_ctl.sh` 常驻维护
-- 喷涂点文件（如 `gnss_waypoints.txt`、`points_test_mikinwn.txt`）为经纬度文本，由 `spray_path_planner` 读取并转为 EPSG 2100 坐标
+- 喷涂点文件（如 `gnss_waypoints.txt`、`points_test_mikinwn.txt`）当前应使用与 `/epsg_position` 同框架的 EPSG:2100 + HEPOS 平面坐标；历史点文件可能来自经纬度离线转换。
 
 ## 关键源文件
 
-- `b2w_navigation_ws/src/main.cpp` — B2W 导航主控逻辑（约 807 行）
-- `b2w_navigation_ws/src/main_ekf.cpp` — EKF 融合版本（约 1041 行）
+- `b2w_navigation_ws/src/main.cpp` — B2W 导航主控逻辑
 - `b2w_navigation_ws/src/b2w_teleop.cpp` — 遥控/手动控制逻辑
-- `app_ws/src/app_node.cpp` — TCP 通信协议实现（约 533 行）
+- `app_ws/src/app_node.cpp` — TCP 通信协议实现
 - `rtk_nav_ws/src/ins_parser.cpp` — 司南 RTK 串口解析与坐标投影（发布 /fix、/utm_fix、/epsg_position、/gps）
 - `rtk_nav_ws/src/dog_controller.cpp` — 遥控手柄控制辅助
 - `z1_move_ws/src/z1_arm_controller_node.cpp` — Z1 控制节点
