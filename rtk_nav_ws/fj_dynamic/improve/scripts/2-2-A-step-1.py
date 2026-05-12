@@ -21,11 +21,18 @@ main.cpp 偏移公式：
 4. 旋转机器人到不同朝向重复，验证一致性
 5. 运行结束后自动保存 JSON + 文本报告
 
+现场转向时如果 base_link 无法保持在同一个 P 上，使用：
+    --per-round-base-link
+每次采集前重新输入当前朝向下丰疆测得的 base_link 垂直投影点 P_i。
+数学上只要求每轮的 P_i 和司南 RTK 均值 A_i 属于同一机器人静止姿态，
+不要求所有朝向共用同一个 P。
+
 用法
 ----
 python3 2-2-A-step-1.py --base-link-e 481599.199 --base-link-n 4210292.482
 python3 2-2-A-step-1.py                   # 交互式输入
 python3 2-2-A-step-1.py ... --frames 20   # 自定义采集帧数
+python3 2-2-A-step-1.py --per-round-base-link
 
 运行环境
 --------
@@ -172,10 +179,13 @@ class RtkCollector(Node):
 # 交互式输入
 # ─────────────────────────────────────────────────────────────
 
-def ask_base_link() -> Tuple[float, float]:
+def ask_base_link(round_idx: Optional[int] = None) -> Tuple[float, float]:
     print()
     print("━" * 64)
-    print("  输入丰疆测量的 base_link 中心点 P（EPSG:2100）")
+    if round_idx is None:
+        print("  输入丰疆测量的 base_link 中心点 P（EPSG:2100）")
+    else:
+        print(f"  输入第 {round_idx} 次姿态的 base_link 中心点 P_i（EPSG:2100）")
     print("  （机器狗 base_link 中心垂直投影到地面标记点）")
     print("━" * 64)
     while True:
@@ -381,12 +391,19 @@ def save_results(
 
     # ── 文本报告 ───────────────────────────────────────────────
     txt_path = RESULTS_DIR / f"{stem}_report.txt"
+    if config.get("base_link_mode") == "per_round":
+        base_link_line = "  base_link P   每轮单独输入 P_i"
+    else:
+        base_link_line = (
+            f"  base_link P   E={config['base_link_e']:.4f}  "
+            f"N={config['base_link_n']:.4f}"
+        )
     lines = [
         f"RTK 天线偏移标定报告",
         f"生成时间  : {ts}",
         f"",
         f"【配置】",
-        f"  base_link P   E={config['base_link_e']:.4f}  N={config['base_link_n']:.4f}",
+        base_link_line,
         f"  采集帧数      {config['frames_per_round']} 帧/次",
         f"  RTK 话题      {config['topic']}",
         f"  当前 YAML     rtk_x_offset={config['current_yaml_offset']}",
@@ -400,6 +417,7 @@ def save_results(
         sg = r["suggested"]
         lines += [
             f"  朝向 {r['round']}：",
+            f"    base_link   E={r['base_link']['e']:.4f}  N={r['base_link']['n']:.4f}",
             f"    天线均值   E={s['ant_e_mean']:.4f}  N={s['ant_n_mean']:.4f}  yaw={s['yaw_deg_mean']:+.2f}°",
             f"    定位散布   E_std={s['e_std_mm']:.1f} mm  N_std={s['n_std_mm']:.1f} mm",
             f"    世界差值   dE={d['d_e']:+.4f} m  dN={d['d_n']:+.4f} m",
@@ -447,19 +465,28 @@ def main() -> None:
     parser.add_argument("--current-offset", type=float, default=-0.4477,
                         metavar="X",
                         help="当前 YAML rtk_x_offset（默认 -0.4477）")
+    parser.add_argument("--per-round-base-link", action="store_true",
+                        help="每次采集前重新输入当前 base_link 坐标；用于转向后无法保持同一 P 点的现场流程")
     args = parser.parse_args()
 
     # 时间戳（文件名和 JSON 共用）
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     # ── 获取 base_link 坐标
-    if args.base_link_e is not None and args.base_link_n is not None:
+    fixed_base_link = not args.per_round_base_link
+    p_e: Optional[float] = None
+    p_n: Optional[float] = None
+    if fixed_base_link and args.base_link_e is not None and args.base_link_n is not None:
         p_e, p_n = args.base_link_e, args.base_link_n
         print(f"\n  base_link P（命令行）：E={p_e:.4f}  N={p_n:.4f}")
-    else:
+    elif fixed_base_link:
         p_e, p_n = ask_base_link()
+    else:
+        if (args.base_link_e is None) != (args.base_link_n is None):
+            print("  ⚠ --base-link-e 和 --base-link-n 必须同时提供；per-round 模式下将忽略不完整输入。")
 
     config = {
+        "base_link_mode"    : "per_round" if args.per_round_base_link else "fixed",
         "base_link_e"       : p_e,
         "base_link_n"       : p_n,
         "frames_per_round"  : args.frames,
@@ -475,14 +502,20 @@ def main() -> None:
     print(SEP)
     print("  标定准备")
     print(SEP)
-    print(f"  base_link P   E={p_e:.4f}  N={p_n:.4f}")
+    if fixed_base_link:
+        print(f"  base_link P   E={p_e:.4f}  N={p_n:.4f}")
+    else:
+        print("  base_link P   每次采集前重新输入当前 P_i")
     print(f"  采集帧数      {args.frames} 帧/次（10Hz RTK 约 {args.frames/10:.0f}s）")
     print(f"  话题          {args.topic}")
     print(f"  当前 YAML     rtk_x_offset={args.current_offset}")
     print()
     print("  请确认：")
     print("  1. 机器人完全静止")
-    print("  2. base_link 中心垂直对准地面物理标记点 P")
+    if fixed_base_link:
+        print("  2. base_link 中心垂直对准地面物理标记点 P")
+    else:
+        print("  2. 每次转向停稳后，用丰疆重新测当前 base_link 投影点 P_i")
     print("  3. tcp_base_ctl.service 在运行（ins_parser 节点在线）")
     print(SEP)
 
@@ -491,6 +524,9 @@ def main() -> None:
 
     try:
         while True:
+            if not fixed_base_link:
+                p_e, p_n = ask_base_link(round_idx)
+
             input(f"\n  按 Enter 开始第 {round_idx} 次采集（朝向 {round_idx}）...")
             result = measure_one_round(collector, p_e, p_n, round_idx)
 
@@ -508,7 +544,10 @@ def main() -> None:
                 break
 
             print()
-            print("  请旋转机器人到新朝向，保持 base_link 仍在标记点 P 上。")
+            if fixed_base_link:
+                print("  请旋转机器人到新朝向，保持 base_link 仍在标记点 P 上。")
+            else:
+                print("  请旋转机器人到新朝向并停稳；下一轮会重新输入当前 P_i。")
 
     except KeyboardInterrupt:
         print("\n\n  ⚠ 用户中断，保存已有数据...")

@@ -126,27 +126,95 @@ heading_alignment_threshold: 0.05   # 原 0.25 (≈14°)，调到 0.05 (≈3°)
 
 ### 2.2 A1：天线 + 机械臂外参现场标定
 
-**这是最大单项收益项**（预期减 5-7 cm）。原因是 5-6 测试中 dE 系统性 +6.6 cm 偏置，最可能的根因就是 `rtk_x_offset` 不准。
+**这是当前最大单项收益项**（预期减约 5 cm）。原因是 5-7 test2 中仍有 dE 系统性 +5.4 cm 偏置，最可能的根因就是 `rtk_x_offset` 不准。
 
 #### 步骤 1：标定 RTK 天线相对 base_link 的实际偏移
 
 ```
 准备：
-  - 一个用丰疆贴地物理标记 P（base_link 中心点参考）
-  - 机器人静止放置，base_link 中心垂直投影在 P 上
-  - 机器人朝向 0°（正东，ROS 系下 yaw=0）
+  - 用丰疆测量 base_link 中心垂直投影点 P（EPSG:2100）
+  - 机器人静止放置，采集时姿态不能变化
+  - 推荐先用单一朝向完成一次测量；多朝向只用于一致性验证
 
 测量：
   - 司南 /epsg_position 读 N=10 帧均值，得到 RTK 天线的实际世界坐标 A
-  - 计算：rtk_x_offset_real = A.x - P.x
-  - 注意：天线在 base_link 后方时为负值
+  - 用当前 yaw 把 A - P 投影到机体系：
+    - body_x = (A_E - P_E) * cos(yaw) + (A_N - P_N) * sin(yaw)
+    - body_y = -(A_E - P_E) * sin(yaw) + (A_N - P_N) * cos(yaw)
+  - 按当前 main.cpp 符号约定：rtk_x_offset_real = -body_x
+  - 注意：当前 main.cpp 使用 abs(rtk_x_offset)，YAML 中保持负值是为了沿用既有配置习惯
   
 验证：
-  - 旋转机器人到 90°、180°、270° 各重复一次
-  - 4 次测量得到的"天线相对 base_link 的偏移向量"应该都在车头方向上
-  - 把车头方向坐标做内积，应该是个稳定值（cm 级一致性）
-  - 不一致说明 base_link 中心点 P 选错或机器人没对齐到 P
+  - 如果转向后 base_link 不能保持在同一个 P 上，不要强行复用旧 P
+  - 每次转向停稳后，用丰疆重新测当前 base_link 投影点 P_i
+  - 每轮用自己的 P_i 和同一姿态下的司南 A_i 计算 body_x/body_y
+  - 多轮 rtk_x_offset 应该稳定；不稳定说明 P_i 对中、yaw 或 RTK 帧质量有问题
 ```
+
+现场脚本：
+
+```bash
+# 固定 P 模式：适合能保证转向后 base_link 仍在同一物理点上
+python3 rtk_nav_ws/fj_dynamic/improve/scripts/2-2-A-step-1.py \
+  --base-link-e <P_E> --base-link-n <P_N>
+
+# 每轮 P_i 模式：适合四足机器人转向后 base_link 会平移的实际现场
+python3 rtk_nav_ws/fj_dynamic/improve/scripts/2-2-A-step-1.py \
+  --per-round-base-link
+```
+
+现场执行流程（推荐按此对照操作）：
+
+```bash
+source /opt/ros/humble/setup.bash
+source /home/test/rtk_nav_ws/install/setup.bash
+
+# 确认司南 RTK 位置话题正常
+ros2 topic echo /epsg_position --once
+
+# 进入每轮 P_i 标定模式
+python3 rtk_nav_ws/fj_dynamic/improve/scripts/2-2-A-step-1.py \
+  --per-round-base-link \
+  --frames 20 \
+  --current-offset -0.4477
+```
+
+操作步骤：
+
+1. 让机器人停稳在第一个朝向。
+2. 用丰疆 RTK 测当前 `base_link` 中心垂直投影点，得到 EPSG:2100 的 `E/N`。
+3. 脚本提示输入第 1 次 `P_i` 时，填入这组 `E/N`。
+4. 按 Enter，脚本采集司南 `/epsg_position` 多帧均值，并输出本轮：
+   - RTK 天线均值 `A`
+   - 当前 yaw
+   - `body_x/body_y`
+   - 建议的 `rtk_x_offset`
+5. 转向到新朝向并停稳；不要强求回到上一个 P 点。
+6. 再用丰疆测当前 `base_link` 投影点 `P_i`，输入脚本，重复采集。
+7. 建议至少测 4 个朝向，尽量覆盖 0°、90°、180°、270°。
+
+结果判定：
+
+- `rtk_x_offset std < 10 mm`：结果可信，可以写入 YAML。
+- `10-20 mm`：勉强可用，建议复测。
+- `> 20 mm`：不要更新配置，通常是 `P_i` 对中不准、机器人没停稳、RTK 跳点或 yaw 不稳定。
+
+结果文件会保存到：
+
+```text
+rtk_nav_ws/fj_dynamic/improve/calibration_results/
+```
+
+拿到推荐值后，更新：
+
+```yaml
+# b2w_navigation_ws/config/b2w_controller_params.yaml
+rtk_x_offset: <脚本推荐均值>
+```
+
+当前 `main.cpp` 只使用 `rtk_x_offset`，`rtk_y_offset` 是脚本诊断值；如果 `rtk_y_offset` 长期超过 1 cm，说明 RTK 天线存在明显横向安装偏差，后续需要改导航代码支持二维外参。
+
+关键约束：**每一轮只要求 P_i 和 A_i 属于同一静止姿态**，不要求所有朝向共用同一个 P。没有每轮真实 P_i 时，单靠司南 RTK 天线轨迹无法区分“天线外参”和“底盘转向带来的平移”，外参不可辨识。
 
 **更新文件**：`b2w_navigation_ws/config/b2w_controller_params.yaml`
 
@@ -231,11 +299,11 @@ ARM_TRIGGER base=(base_E,base_N) yaw=yaw° z1_world=(z1_E,z1_N) target=(target_E
 
 #### A1 总预期收益
 
-- 步骤 1（rtk_x_offset 校准）：消除 5-6 测试中 dE +6.6 cm 系统偏置 → **待标定**
+- 步骤 1（rtk_x_offset 校准）：消除 5-7 test2 中 dE +5.4 cm 系统偏置 → **待标定**
 - 步骤 2（arm_offset_x）：✅ 已确认使用 URDF 值 0.3487 m，无需标定
 - 步骤 3（机械臂运动学）：随 A1.1 验证实验同步测量，无需单独实验
 
-**总减约 5-7 cm**（主要来自步骤 1）。
+**总减约 5 cm**（主要来自步骤 1）。
 
 ### 2.3 已完成 — A2：多帧 RTK 均值
 
@@ -462,7 +530,11 @@ dN_const = mean(N_sn_i - N_fj_i)
 }
 ```
 
-### 3.3 B3：录入流程加 T 校正
+### 3.3 B3：录入流程加 T 校正（⏸ 暂停）
+
+> 当前状态：**不要在现场作业流程中启用 B3**。
+>
+> 原因：5-7 test4 证明全局平移/仿射变换收益很小，且仓库当前没有 `tools/import_fj_waypoints.py`、`calibration.json` 的完整生产工具链。当前阶段优先完成 A1.1 `rtk_x_offset` 标定，再用实测 ③ 判断是否需要恢复 B2/B3。
 
 新增工具脚本：`tools/import_fj_waypoints.py`
 
@@ -504,15 +576,19 @@ dN_const = mean(N_sn_i - N_fj_i)
 
 ### 4.1 作业前
 
-1. 录点方用丰疆录目标点 → 输出 `fj_export_<date>.csv`
-2. 检查 calibration.json 是否覆盖目标点的工作区域
-3. 跑：`python3 tools/import_fj_waypoints.py fj_export_<date>.csv -o /home/test/gnss_waypoints.txt`
+当前阶段（B2/B3 暂停）：
+
+1. 确认已经完成 A1.1，`b2w_navigation_ws/config/b2w_controller_params.yaml` 中的 `rtk_x_offset` 是脚本推荐值。
+2. 录点方用丰疆录目标点，按当前项目格式生成或手动整理 `gnss_waypoints.txt`。
+3. 如果丰疆输出的是 WGS84 经纬度，先走狗端同一套转换链路生成 EPSG:2100 坐标；如果丰疆已经输出 EPSG:2100 平面坐标，直接使用该 E/N。
 4. SSH 到机器狗确认 waypoint 文件已更新：
    ```bash
    wc -l /home/test/gnss_waypoints.txt
    head /home/test/gnss_waypoints.txt
    ```
 5. 重启 service：`sudo systemctl restart tcp_base_ctl.service`
+
+仅当后续重新启用 B2/B3 时，才恢复 `calibration.json` 检查和 `tools/import_fj_waypoints.py` 导入流程。
 
 ### 4.2 作业中
 
@@ -525,22 +601,14 @@ tail -F /home/test/logs/start_all_latest/b2w_navigation.log
 ### 4.3 作业后
 
 1. 录点方用丰疆复测每个喷涂落点 → 输出 `fj_spray_<date>.csv`
-2. 把目标-落点对追加到 `calibration_log.csv`：
-   ```bash
-   python3 tools/append_calibration_log.py \
-       --target fj_export_<date>.csv \
-       --spray fj_spray_<date>.csv \
-       --log calibration_log.csv
-   ```
-3. 计算本次作业的端到端 ③ 误差，记录在作业日志里
+2. 用目标点 E/N 与落点 E/N 计算本次作业的端到端 ③ 误差，记录在作业日志里。
+3. 手工保存目标-落点对 CSV，字段至少包含 `name,target_E,target_N,spray_E,spray_N,error_m`。后续若恢复 B2/B3，可再导入这些历史数据。
 
 ### 4.4 长期
 
-- **每月或每 100 个作业点**，重新跑 §3.2 步骤 4 的拟合
-  - 输入：`calibration_pairs.csv` + `calibration_log.csv` 中累积的目标-落点对
-  - 输出：新版 `calibration.json`
-  - 比较新旧版的 RMSE，如果新版显著更好（RMSE 降低 > 20%），切换到新版
-- 跨工地工作时，重新跑 §3.2 全部步骤
+- 每月或每 100 个作业点，汇总一次目标-落点误差，检查是否重新出现稳定方向的系统偏置。
+- 若 A1.1 后 ③ 仍长期 > 4 cm，再恢复 §3.2/§3.3 的 B2/B3 工具链。
+- 跨工地工作时，至少重新跑 A1.1；如果新工地 ③ 超标，再重新建立公共点网络。
 
 ---
 
@@ -582,15 +650,17 @@ tail -F /home/test/logs/start_all_latest/b2w_navigation.log
 
 ## 6. 待开发工具清单
 
+当前可执行工具只有 A1.1 标定脚本：`rtk_nav_ws/fj_dynamic/improve/scripts/2-2-A-step-1.py`。B2/B3 相关工具当前未实现，且已暂停，不是完成下一轮现场测试的前置条件。
+
 | # | 文件名 | 用途 | 优先级 |
 |---|---|---|---|
-| 1 | `tools/fit_fj_sn_transform.py` | 从 `calibration_pairs.csv` 拟合 T，输出 `calibration.json` + RMSE 报告 | 高 |
-| 2 | `tools/import_fj_waypoints.py` | 丰疆 CSV → 应用 T → 输出 `gnss_waypoints.txt` | 高 |
-| 3 | `tools/append_calibration_log.py` | 把作业的 (target_fj, spray_fj) 对追加到 `calibration_log.csv` | 中 |
-| 4 | `tools/calibrate_rtk_offset.py` | 自动化 A1.1 步骤：读司南 N 帧 + 已知 P → 输出 rtk_x_offset 建议值 | 中 |
+| 1 | `rtk_nav_ws/fj_dynamic/improve/scripts/2-2-A-step-1.py` | A1.1：读司南 N 帧 + 每轮丰疆 P_i → 输出 `rtk_x_offset` 建议值 | 已有 |
+| 2 | `tools/fit_fj_sn_transform.py` | B2：从 `calibration_pairs.csv` 拟合 T，输出 `calibration.json` + RMSE 报告 | 暂停 |
+| 3 | `tools/import_fj_waypoints.py` | B3：丰疆 CSV → 应用 T → 输出 `gnss_waypoints.txt` | 暂停 |
+| 4 | `tools/append_calibration_log.py` | 把作业的 (target_fj, spray_fj) 对追加到 `calibration_log.csv` | 可选 |
 | 5 | `tools/run_arm_kinematics_test.py` | 自动化 A1.3 步骤：让机械臂依次伸到 N 个目标，记录 RTK | 低 |
 
-工具链建议都放在项目根的 `tools/` 目录，跟 `convert_var_point_no_datum.py`、`record_gps_epsg_point.py` 等已有脚本同级。
+如果恢复开发 B2/B3 工具链，建议都放在项目根的 `tools/` 目录，跟 `record_gps_epsg_point.py` 等已有脚本同级。
 
 ---
 
@@ -600,7 +670,7 @@ tail -F /home/test/logs/start_all_latest/b2w_navigation.log
 |---|---|---|
 | M0 — 基线确立 | 完成 5 点测试，③ 端到端误差有量化值 | ✅ 5-6 测试，③ = 11.1 cm 均值 |
 | M0.5 — 软件侧调优 | C（heading 阈值）+ A2（多帧均值）已合并入代码 | ✅ 已完成 |
-| **M1a — 跨系混入消除** | 改用丰疆录目标（同系测量），③ 减少 ≥ 20% | **✅ 已达成**：5-7 test2 ③ = **8.0 cm**（−28% 改善） |
+| **M1a — 项目流程基线复测** | 丰疆录目标 + 丰疆复测落点，③ 较 5-6 基线减少 ≥ 20% | **✅ 已达成**：5-7 test2 ③ = **8.0 cm**（−28% 改善） |
 | M1b — 公共点偏差刻画 | ≥ 8 个点定量化司南-丰疆系统偏差的空间分布 | ✅ 5-7 test4：均值 ≈ 0、std=34 mm、空间非线性 |
 | M2 — 外参标定 | 跑 A1.1 标定 rtk_x_offset，③ ≤ 4 cm（均值） | ⏳ Step 1：标定脚本已就绪 |
 | **M3 — 项目目标** | **③ ≤ 3 cm（均值），最大 ≤ 5 cm** | ⏳ Step 1+2 后验证，单点已实测 2.9 cm（test5 pt2） |
