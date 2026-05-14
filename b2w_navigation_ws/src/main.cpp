@@ -86,6 +86,7 @@ public:
         this->declare_parameter("avoid_distance", 0.8);
         this->declare_parameter<double>("obstacle_detection_range", 1.2); 
         this->declare_parameter("arm_offset_x", 0.3487);
+        this->declare_parameter("arm_target_comp_x", 0.0);
         this->declare_parameter("rtk_x_offset", -0.4477);
         this->declare_parameter("rtk_hz", 10); //hz
         this->declare_parameter("distance_to_slow_down", 2.5);
@@ -103,6 +104,7 @@ public:
         this->get_parameter("avoid_distance", avoid_dist_);
         this->get_parameter("obstacle_detection_range", obs_range_);
         this->get_parameter("arm_offset_x", arm_offset_x_);
+        this->get_parameter("arm_target_comp_x", arm_target_comp_x_);
         this->get_parameter("rtk_x_offset", rtk_x_offset_);
         this->get_parameter("rtk_hz", rtk_hz_);
         this->get_parameter("distance_to_slow_down", distance_to_slow_down_);
@@ -126,6 +128,7 @@ public:
         RCLCPP_INFO(this->get_logger(), " reposition_back_distance: %.3f m", reposition_back_distance_);
         RCLCPP_INFO(this->get_logger(), " avoid_distance: %.3f m", avoid_dist_);
         RCLCPP_INFO(this->get_logger(), " arm_offset_x: %.4f m", arm_offset_x_);
+        RCLCPP_INFO(this->get_logger(), " arm_target_comp_x: %.4f m", arm_target_comp_x_);
         RCLCPP_INFO(this->get_logger(), "rtk_x_offset: %.4f m", rtk_x_offset_);
         RCLCPP_INFO(this->get_logger(), "rtk_hz: %d", rtk_hz_);
         RCLCPP_INFO(this->get_logger(), "distance_to_slow_down: %.3f", distance_to_slow_down_);
@@ -692,6 +695,7 @@ private:
                 double sin_h = std::sin(robot_yaw);
                 double dx_local =  dx_world * cos_h + dy_world * sin_h;
                 double dy_local = -dx_world * sin_h + dy_world * cos_h;
+                dx_local += arm_target_comp_x_;
                 last_dx_local_ = dx_local;
                 // 设定末端目标高度（可根据任务调整）
                 const double target_z = z1_arm_end_height_;
@@ -978,6 +982,7 @@ private:
     double reposition_back_distance_;
     double avoid_dist_, obs_range_;
     double arm_offset_x_;
+    double arm_target_comp_x_;
     double rtk_x_offset_;
     int rtk_hz_;
     double distance_to_slow_down_;
