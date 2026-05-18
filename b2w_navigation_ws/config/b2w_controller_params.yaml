@@ -3,14 +3,14 @@ b2w_nav_node:
     heading_alignment_threshold: 0.05      # 弧度，对准目标方向的允许误差（原 0.25 ≈ 14°，调到 0.05 ≈ 3°，减少机械臂横向偏移 ~17 mm）
     moving_to_target_forward_speed: 0.9    # 作业时的前进速度 (m/s)
     z1_arm_end_height: 0.0                 # 机械臂末端目标高度 (m)
-    z1_arm_target_pitch_deg: 83.0          # 机械臂末端目标 pitch 角度 (deg)
+    z1_arm_target_pitch_deg: 84.0          # 机械臂末端目标 pitch 角度 (deg)
     arrive_distance: 0.8                   # 到达目标点判定阈值 (m)
     min_distance_for_arm_task: 0.6         # 执行机械臂任务所需的最小距离 (m)
     reposition_back_distance: 0.35         # 太近时后退的距离 (m)
     avoid_distance: 0.8                    # 绕障前进距离 (m)
     obstacle_detection_range: 1.2          # 前方障碍物检测距离 (m)
     arm_offset_x: 0.3487                   # 机械臂底座相对 base_link 的 x 偏移 (m)
-    arm_target_comp_x: 0.02                # 喷涂目标前向补偿 (m)，喷点落在目标和狗头之间时增大
+    arm_target_comp_x: 0.015                # 喷涂目标前向补偿 (m)，喷点落在目标和狗头之间时增大
     rtk_x_offset: -0.4477                  # RTK 天线相对 base_link 的 x 偏移 (m)
     rtk_hz: 10                             # RTK 发布频率 (Hz)
     distance_to_slow_down: 2.5             # 距离目标小于该值时开始减速 (m)

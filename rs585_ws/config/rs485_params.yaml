@@ -5,4 +5,4 @@ rs485_node:
     serial_port: "/dev/ttyTHS1"
     baud: 9600
     waypoint_file: "~/gnss_waypoints.txt"
-    trigger_time_ms: 300  #毫秒
+    trigger_time_ms: 150  #毫秒
