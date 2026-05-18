@@ -12,20 +12,27 @@
 #include <array>
 #include <atomic>
 #include <cerrno>
+#include <chrono>
+#include <cctype>
 #include <cstdint>
 #include <cstring>
 #include <cstdlib>
+#include <csignal>
+#include <cstdio>
 #include <iomanip>
+#include <iterator>
 #include <limits>
 #include <mutex>
 #include <sstream>
 #include <thread>
 #include <vector>
+#include <sys/stat.h>
 #include <std_msgs/msg/float32_multi_array.hpp>
 #include <nav_msgs/msg/path.hpp> 
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/point_cloud2_iterator.hpp>
 #include <fstream>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <std_srvs/srv/trigger.hpp>
@@ -43,7 +50,17 @@ public:
     RemoteControlNode()
     : Node("remote_control_node") {
         this->declare_parameter<int>("listen_port", 9002);
+        this->declare_parameter<double>("client_disconnect_auto_pause_seconds", 8.0);
         int port = this->get_parameter("listen_port").as_int();
+        client_disconnect_auto_pause_seconds_ =
+            this->get_parameter("client_disconnect_auto_pause_seconds").as_double();
+        if (client_disconnect_auto_pause_seconds_ > 0.0 && client_disconnect_auto_pause_seconds_ < 3.0) {
+            RCLCPP_WARN(
+                this->get_logger(),
+                "client_disconnect_auto_pause_seconds=%.3f is below the 3s WiFi jitter grace period; clamping to 3.0s.",
+                client_disconnect_auto_pause_seconds_);
+            client_disconnect_auto_pause_seconds_ = 3.0;
+        }
         const char *home_env = std::getenv("HOME");
         std::string home = home_env ? home_env : "";
         std::string file_path = home + "/gnss_waypoints.txt";
@@ -89,6 +106,8 @@ public:
 
     ~RemoteControlNode() {
         stop_requested_.store(true);
+        clearSafetyTimers();
+        cancelDisconnectAutoPause("remote_control_node shutting down; cancel disconnect auto-pause");
         {
             std::lock_guard<std::mutex> lock(client_mutex_);
             closeClientSocketLocked();
@@ -164,6 +183,7 @@ private:
                 std::lock_guard<std::mutex> lock(client_mutex_);
                 client_sock_ = new_socket;
             }
+            cancelDisconnectAutoPause("APP client reconnect/cancel disconnect auto-pause");
 
             char client_ip[INET_ADDRSTRLEN];
             inet_ntop(AF_INET, &address.sin_addr, client_ip, INET_ADDRSTRLEN);
@@ -207,13 +227,18 @@ private:
             while (parseNextPacket(stream_buffer)) {
             }
         }
+        bool active_client_disconnected = false;
         {
             std::lock_guard<std::mutex> lock(client_mutex_);
             if (client_sock_ == sock) {
                 closeClientSocketLocked();
+                active_client_disconnected = true;
             } else if (sock >= 0) {
                 close(sock);
             }
+        }
+        if (active_client_disconnected && !stop_requested_.load()) {
+            scheduleDisconnectAutoPause();
         }
     }
 
@@ -324,29 +349,12 @@ private:
                 }
                 case 0x02:
                     cmd_str = "pause";
-                    RCLCPP_INFO(this->get_logger(), "Received command: pause (0x02)");
-                    if (requestTrigger(emergency_stop_client_, "Emergency stop")) {
-                        RCLCPP_INFO(this->get_logger(), "Pause request accepted.");
-                    } else {
-                        RCLCPP_WARN(this->get_logger(), "Pause rejected.");
-                    }
+                    handlePauseCommand();
                     break;
                 case 0x03:
                     cmd_str = "stop";
                 {
-                    const int rc = system(
-                        "bash -c '"
-                        "if [ -f /tmp/start_all.pid ]; then "
-                        "pid=$(cat /tmp/start_all.pid); "
-                        "if [ -n \"$pid\" ] && kill -0 \"$pid\" 2>/dev/null; then "
-                        "kill -TERM -\"$pid\"; "
-                        "else "
-                        "echo start_all not running; "
-                        "fi; "
-                        "else "
-                        "echo /tmp/start_all.pid not found; "
-                        "fi'");
-                    RCLCPP_INFO(this->get_logger(), "Stop command system() returned %d", rc);
+                    handleStopCommand();
                     break;
                 }
                 default:
@@ -422,6 +430,370 @@ private:
         }
     }
 
+    struct StartAllTarget {
+        pid_t pid = -1;
+        pid_t pgid = -1;
+    };
+
+    bool parsePositivePid(const std::string &text, pid_t &value) const
+    {
+        if (text.empty()) {
+            return false;
+        }
+        for (char ch : text) {
+            if (!std::isdigit(static_cast<unsigned char>(ch))) {
+                return false;
+            }
+        }
+        try {
+            const long parsed = std::stol(text);
+            if (parsed <= 1 || parsed > std::numeric_limits<pid_t>::max()) {
+                return false;
+            }
+            value = static_cast<pid_t>(parsed);
+            return true;
+        } catch (const std::exception &) {
+            return false;
+        }
+    }
+
+    bool readTrustedRunFile(const std::string &path, std::string &content) const
+    {
+        struct stat st;
+        if (lstat(path.c_str(), &st) != 0) {
+            return false;
+        }
+        if (!S_ISREG(st.st_mode)) {
+            RCLCPP_WARN(this->get_logger(), "Ignoring %s: not a regular file.", path.c_str());
+            return false;
+        }
+        if ((st.st_mode & (S_IWGRP | S_IWOTH)) != 0) {
+            RCLCPP_WARN(this->get_logger(), "Ignoring %s: group/world writable mode %o.", path.c_str(), st.st_mode & 0777);
+            return false;
+        }
+        const uid_t uid = geteuid();
+        if (st.st_uid != uid && st.st_uid != 0) {
+            RCLCPP_WARN(this->get_logger(), "Ignoring %s: owner uid %ld is not trusted uid %ld/root.",
+                        path.c_str(), static_cast<long>(st.st_uid), static_cast<long>(uid));
+            return false;
+        }
+
+        std::ifstream file(path);
+        if (!file.is_open()) {
+            RCLCPP_WARN(this->get_logger(), "Ignoring %s: cannot open for reading.", path.c_str());
+            return false;
+        }
+        std::ostringstream buffer;
+        buffer << file.rdbuf();
+        content = buffer.str();
+        return !content.empty();
+    }
+
+    bool processGroupExists(pid_t pgid) const
+    {
+        if (pgid <= 1 || pgid == getpgrp()) {
+            return false;
+        }
+        if (kill(-pgid, 0) == 0) {
+            return true;
+        }
+        return errno == EPERM;
+    }
+
+    bool validateStartAllTarget(const StartAllTarget &target) const
+    {
+        if (target.pid <= 1 || target.pgid <= 1) {
+            RCLCPP_WARN(this->get_logger(), "Rejecting invalid start_all target pid=%ld pgid=%ld.",
+                        static_cast<long>(target.pid), static_cast<long>(target.pgid));
+            return false;
+        }
+        if (target.pgid == getpgrp()) {
+            RCLCPP_WARN(this->get_logger(), "Rejecting start_all pgid=%ld because it is the APP node process group.",
+                        static_cast<long>(target.pgid));
+            return false;
+        }
+        if (kill(target.pid, 0) != 0) {
+            RCLCPP_WARN(this->get_logger(), "start_all pid=%ld is not running: %s.",
+                        static_cast<long>(target.pid), std::strerror(errno));
+            return false;
+        }
+        const pid_t actual_pgid = getpgid(target.pid);
+        if (actual_pgid != target.pgid) {
+            RCLCPP_WARN(this->get_logger(), "Rejecting start_all target: pid=%ld has pgid=%ld, expected pgid=%ld.",
+                        static_cast<long>(target.pid), static_cast<long>(actual_pgid), static_cast<long>(target.pgid));
+            return false;
+        }
+
+        struct stat proc_st;
+        const std::string proc_dir = "/proc/" + std::to_string(target.pid);
+        if (stat(proc_dir.c_str(), &proc_st) != 0) {
+            RCLCPP_WARN(this->get_logger(), "Rejecting start_all target: cannot stat %s.", proc_dir.c_str());
+            return false;
+        }
+        const uid_t uid = geteuid();
+        if (proc_st.st_uid != uid && proc_st.st_uid != 0) {
+            RCLCPP_WARN(this->get_logger(), "Rejecting start_all target pid=%ld: owner uid %ld is not trusted uid %ld/root.",
+                        static_cast<long>(target.pid), static_cast<long>(proc_st.st_uid), static_cast<long>(uid));
+            return false;
+        }
+
+        const std::string cmdline_path = proc_dir + "/cmdline";
+        std::ifstream cmdline_file(cmdline_path, std::ios::binary);
+        if (!cmdline_file.is_open()) {
+            RCLCPP_WARN(this->get_logger(), "Rejecting start_all target: cannot read %s.", cmdline_path.c_str());
+            return false;
+        }
+        std::string cmdline((std::istreambuf_iterator<char>(cmdline_file)), std::istreambuf_iterator<char>());
+        if (cmdline.find("start_all.sh") == std::string::npos) {
+            std::replace(cmdline.begin(), cmdline.end(), '\0', ' ');
+            RCLCPP_WARN(this->get_logger(), "Rejecting non-start_all pid=%ld cmdline='%s'.",
+                        static_cast<long>(target.pid), cmdline.c_str());
+            return false;
+        }
+        return true;
+    }
+
+    bool readStartAllTargetFromPgidFile(StartAllTarget &target) const
+    {
+        std::string content;
+        if (!readTrustedRunFile("/tmp/start_all.pgid", content)) {
+            return false;
+        }
+        std::istringstream input(content);
+        std::string pid_text;
+        std::string pgid_text;
+        std::string tag;
+        input >> pid_text >> pgid_text >> tag;
+        if (tag != "start_all.sh") {
+            RCLCPP_WARN(this->get_logger(), "Ignoring /tmp/start_all.pgid: tag '%s' is not start_all.sh.", tag.c_str());
+            return false;
+        }
+        StartAllTarget candidate;
+        if (!parsePositivePid(pid_text, candidate.pid) || !parsePositivePid(pgid_text, candidate.pgid)) {
+            RCLCPP_WARN(this->get_logger(), "Ignoring /tmp/start_all.pgid: invalid pid/pgid content '%s'.", content.c_str());
+            return false;
+        }
+        if (!validateStartAllTarget(candidate)) {
+            return false;
+        }
+        target = candidate;
+        return true;
+    }
+
+    bool readStartAllTargetFromPidFile(StartAllTarget &target) const
+    {
+        std::string content;
+        if (!readTrustedRunFile("/tmp/start_all.pid", content)) {
+            return false;
+        }
+        std::istringstream input(content);
+        std::string pid_text;
+        input >> pid_text;
+        StartAllTarget candidate;
+        if (!parsePositivePid(pid_text, candidate.pid)) {
+            RCLCPP_WARN(this->get_logger(), "Ignoring /tmp/start_all.pid: invalid pid content '%s'.", content.c_str());
+            return false;
+        }
+        candidate.pgid = getpgid(candidate.pid);
+        if (!validateStartAllTarget(candidate)) {
+            return false;
+        }
+        target = candidate;
+        return true;
+    }
+
+    bool findStartAllTarget(StartAllTarget &target) const
+    {
+        if (readStartAllTargetFromPgidFile(target)) {
+            return true;
+        }
+        RCLCPP_WARN(this->get_logger(), "Falling back from /tmp/start_all.pgid to /tmp/start_all.pid for fail-safe stop.");
+        return readStartAllTargetFromPidFile(target);
+    }
+
+    void clearStartAllRunFiles() const
+    {
+        std::remove("/tmp/start_all.pid");
+        std::remove("/tmp/start_all.pgid");
+        std::remove("/tmp/start_all.ready");
+    }
+
+    void publishSafetyDamp(const std::string &reason)
+    {
+        sensor_msgs::msg::Joy joy_msg;
+        joy_msg.axes.resize(3, 0.0F);
+        joy_msg.buttons.resize(3, 0);
+        joy_msg.buttons[2] = 1;  // b2w_teleop_node maps button[2] to SportClient::Damp().
+
+        for (int i = 0; i < 3; ++i) {
+            joy_pub_->publish(joy_msg);
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        }
+        RCLCPP_ERROR(this->get_logger(), "Published fail-safe Damp Joy command: %s", reason.c_str());
+    }
+
+    int triggerStartAllFailSafeStop(const std::string &reason)
+    {
+        publishSafetyDamp(reason);
+        RCLCPP_ERROR(
+            this->get_logger(),
+            "Triggering start_all fail-safe stop because %s. This intentionally stops the autonomous task instead of letting the robot continue uncontrolled.",
+            reason.c_str());
+
+        StartAllTarget target;
+        if (!findStartAllTarget(target)) {
+            RCLCPP_ERROR(this->get_logger(), "start_all fail-safe stop failed: no verified start_all target found.");
+            return 1;
+        }
+
+        RCLCPP_ERROR(this->get_logger(), "Fail-safe stopping verified start_all pid=%ld pgid=%ld.",
+                     static_cast<long>(target.pid), static_cast<long>(target.pgid));
+        if (kill(-target.pgid, SIGTERM) != 0 && errno != ESRCH) {
+            RCLCPP_WARN(this->get_logger(), "SIGTERM to start_all pgid=%ld failed: %s.",
+                        static_cast<long>(target.pgid), std::strerror(errno));
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        if (processGroupExists(target.pgid)) {
+            RCLCPP_ERROR(this->get_logger(), "start_all pgid=%ld still alive after SIGTERM; escalating to SIGKILL.",
+                         static_cast<long>(target.pgid));
+            if (kill(-target.pgid, SIGKILL) != 0 && errno != ESRCH) {
+                RCLCPP_ERROR(this->get_logger(), "SIGKILL to start_all pgid=%ld failed: %s.",
+                             static_cast<long>(target.pgid), std::strerror(errno));
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        }
+        if (processGroupExists(target.pgid)) {
+            RCLCPP_ERROR(this->get_logger(), "start_all fail-safe stop failed: process group %ld still alive.",
+                         static_cast<long>(target.pgid));
+            return 2;
+        }
+        clearStartAllRunFiles();
+        RCLCPP_ERROR(this->get_logger(), "start_all fail-safe stop completed for pgid=%ld.",
+                     static_cast<long>(target.pgid));
+        return 0;
+    }
+
+    void handlePauseCommand(const std::string &reason = "APP pause command")
+    {
+        RCLCPP_INFO(this->get_logger(), "Received command: pause (0x02), reason: %s", reason.c_str());
+        if (requestTrigger(emergency_stop_client_, "Emergency stop")) {
+            RCLCPP_INFO(this->get_logger(), "Pause request accepted; waiting for emergency_stop response confirmation.");
+        } else {
+            RCLCPP_ERROR(this->get_logger(), "Pause rejected or service unavailable; executing fail-safe stop.");
+            triggerStartAllFailSafeStop("pause fallback: emergency_stop unavailable or readiness rejected");
+        }
+    }
+
+    void handleStopCommand()
+    {
+        RCLCPP_INFO(this->get_logger(), "Received command: stop (0x03)");
+        const int rc = triggerStartAllFailSafeStop("stop command");
+        RCLCPP_INFO(this->get_logger(), "Stop command fail-safe returned %d", rc);
+    }
+
+    void clearSafetyTimers()
+    {
+        std::lock_guard<std::mutex> lock(safety_timer_mutex_);
+        for (auto &entry : safety_timers_) {
+            if (entry.timer) {
+                entry.timer->cancel();
+            }
+        }
+        safety_timers_.clear();
+    }
+
+    uint64_t registerSafetyTimer(const rclcpp::TimerBase::SharedPtr &timer)
+    {
+        std::lock_guard<std::mutex> lock(safety_timer_mutex_);
+        const uint64_t id = ++next_safety_timer_id_;
+        safety_timers_.push_back({id, timer});
+        return id;
+    }
+
+    void cancelSafetyTimer(uint64_t id)
+    {
+        std::lock_guard<std::mutex> lock(safety_timer_mutex_);
+        auto it = std::find_if(
+            safety_timers_.begin(),
+            safety_timers_.end(),
+            [id](const SafetyTimerEntry &entry) { return entry.id == id; });
+        if (it != safety_timers_.end()) {
+            if (it->timer) {
+                it->timer->cancel();
+            }
+            safety_timers_.erase(it);
+        }
+    }
+
+    void cancelDisconnectAutoPause(const std::string &reason)
+    {
+        std::lock_guard<std::mutex> lock(disconnect_timer_mutex_);
+        if (disconnect_auto_pause_pending_) {
+            disconnect_auto_pause_pending_->store(false);
+            disconnect_auto_pause_pending_.reset();
+        }
+        if (disconnect_auto_pause_timer_) {
+            disconnect_auto_pause_timer_->cancel();
+            disconnect_auto_pause_timer_.reset();
+            RCLCPP_INFO(this->get_logger(), "%s", reason.c_str());
+        }
+    }
+
+    void scheduleDisconnectAutoPause()
+    {
+        if (client_disconnect_auto_pause_seconds_ <= 0.0) {
+            RCLCPP_INFO(this->get_logger(), "APP client disconnected; disconnect auto-pause is disabled.");
+            return;
+        }
+
+        auto pending = std::make_shared<std::atomic<bool>>(true);
+        {
+            std::lock_guard<std::mutex> lock(disconnect_timer_mutex_);
+            if (disconnect_auto_pause_pending_) {
+                disconnect_auto_pause_pending_->store(false);
+                disconnect_auto_pause_pending_.reset();
+            }
+            if (disconnect_auto_pause_timer_) {
+                disconnect_auto_pause_timer_->cancel();
+            }
+            disconnect_auto_pause_pending_ = pending;
+            disconnect_auto_pause_timer_ = this->create_wall_timer(
+                std::chrono::duration<double>(client_disconnect_auto_pause_seconds_),
+                [this, pending]() {
+                    if (!pending->exchange(false)) {
+                        return;
+                    }
+                    {
+                        std::lock_guard<std::mutex> lock(disconnect_timer_mutex_);
+                        if (disconnect_auto_pause_pending_ != pending) {
+                            return;
+                        }
+                        disconnect_auto_pause_timer_.reset();
+                        disconnect_auto_pause_pending_.reset();
+                    }
+                    {
+                        std::lock_guard<std::mutex> client_lock(client_mutex_);
+                        if (client_sock_ >= 0) {
+                            RCLCPP_INFO(
+                                this->get_logger(),
+                                "APP client reconnected before disconnect auto-pause fired; skipping stale auto-pause timer.");
+                            return;
+                        }
+                    }
+                    RCLCPP_ERROR(
+                        this->get_logger(),
+                        "APP client disconnected timeout %.1fs reached; requesting automatic pause.",
+                        client_disconnect_auto_pause_seconds_);
+                    handlePauseCommand("APP client disconnected timeout");
+                });
+        }
+
+        RCLCPP_WARN(
+            this->get_logger(),
+            "APP client disconnected; will auto-pause after %.1fs if it does not reconnect.",
+            client_disconnect_auto_pause_seconds_);
+    }
+
     bool requestTrigger(
         const rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr &client,
         const std::string &action_name)
@@ -453,15 +825,67 @@ private:
         }
 
         auto request = std::make_shared<std_srvs::srv::Trigger::Request>();
+        auto response_done = std::make_shared<std::atomic<bool>>(false);
+        uint64_t emergency_timeout_id = 0;
+        if (action_name == "Emergency stop") {
+            auto timeout_id = std::make_shared<uint64_t>(0);
+            auto timeout_timer = this->create_wall_timer(
+                std::chrono::seconds(2),
+                [this, response_done, timeout_id]() {
+                    if (!response_done->exchange(true)) {
+                        RCLCPP_ERROR(
+                            this->get_logger(),
+                            "Emergency stop response timed out; executing fail-safe stop.");
+                        triggerStartAllFailSafeStop("emergency stop response timeout");
+                    }
+                    cancelSafetyTimer(*timeout_id);
+                });
+            emergency_timeout_id = registerSafetyTimer(timeout_timer);
+            *timeout_id = emergency_timeout_id;
+        }
+
         client->async_send_request(
             request,
-            [this, action_name](rclcpp::Client<std_srvs::srv::Trigger>::SharedFuture future) {
-                const auto &response = future.get();
-                if (response->success) {
-                    RCLCPP_INFO(this->get_logger(), "%s succeeded.", action_name.c_str());
-                } else {
-                    RCLCPP_WARN(this->get_logger(), "%s failed: %s",
-                                action_name.c_str(), response->message.c_str());
+            [this, action_name, response_done, emergency_timeout_id](rclcpp::Client<std_srvs::srv::Trigger>::SharedFuture future) {
+                try {
+                    if (response_done->exchange(true)) {
+                        RCLCPP_WARN(this->get_logger(), "%s response arrived after timeout/fail-safe.", action_name.c_str());
+                        return;
+                    }
+                    if (emergency_timeout_id != 0) {
+                        cancelSafetyTimer(emergency_timeout_id);
+                    }
+                    const auto &response = future.get();
+                    RCLCPP_INFO(
+                        this->get_logger(),
+                        "%s response: success=%s message='%s'",
+                        action_name.c_str(),
+                        response->success ? "true" : "false",
+                        response->message.c_str());
+
+                    if (action_name == "Emergency stop") {
+                        const bool pause_confirmed = response->success &&
+                            (response->message.find("Task paused") != std::string::npos ||
+                             response->message.find("Task already paused") != std::string::npos);
+                        if (!pause_confirmed) {
+                            RCLCPP_ERROR(
+                                this->get_logger(),
+                                "Emergency stop response did not confirm paused state; executing fail-safe stop.");
+                            triggerStartAllFailSafeStop("emergency stop bad response");
+                        }
+                        return;
+                    }
+
+                    if (!response->success) {
+                        RCLCPP_WARN(this->get_logger(), "%s failed: %s",
+                                    action_name.c_str(), response->message.c_str());
+                    }
+                } catch (const std::exception &e) {
+                    RCLCPP_ERROR(this->get_logger(), "%s request failed with exception: %s",
+                                 action_name.c_str(), e.what());
+                    if (action_name == "Emergency stop") {
+                        triggerStartAllFailSafeStop("emergency stop exception");
+                    }
                 }
             });
         return true;
@@ -820,6 +1244,18 @@ private:
     int server_fd_ = -1;
     int client_sock_ = -1;          // 当前客户端 socket
     std::mutex client_mutex_;       // 保护 client_sock_
+    struct SafetyTimerEntry {
+        uint64_t id;
+        rclcpp::TimerBase::SharedPtr timer;
+    };
+
+    std::mutex safety_timer_mutex_; // 保护 safety_timers_
+    uint64_t next_safety_timer_id_ = 0;
+    std::vector<SafetyTimerEntry> safety_timers_; // keep emergency timeout timers alive
+    std::mutex disconnect_timer_mutex_; // 保护断联自动暂停计时器
+    rclcpp::TimerBase::SharedPtr disconnect_auto_pause_timer_;
+    std::shared_ptr<std::atomic<bool>> disconnect_auto_pause_pending_;
+    double client_disconnect_auto_pause_seconds_ = 8.0;
 };
 
 int main(int argc, char * argv[])
