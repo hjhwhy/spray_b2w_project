@@ -1,0 +1,944 @@
+=== record pt1 @ 2026-05-07 14:43:18.994 ===
+proj_default: pyproj EPSG:4326->EPSG:2100 (CRS-to-CRS, datum included)
+hepos_grid  : loaded dE_2km_V1-0.egrd (408x422 @ 2000.0m) origin=(-64400.0,3840000.0)
+gpgga_raw   : using gpgga_raw_20260507_132811_3161.log (45068 RAW lines)
+frames      : 3
+
+[frame 1/3]
+  gps_stamp     : 2026-05-07 14:43:17.915
+  epsg_stamp    : 2026-05-07 14:43:17.932
+  stamp_dt_s    : 0.017745
+  gps_status    : 2 (NavSatStatus)
+  service       : 0x0001
+  raw_gpgga     : $GPGGA,115513.90,3802.5642482,N,02347.5194283,E,4,25,0.6,185.1192,M,38.484,M,0.9,0001*71
+  WGS84
+    lat_deg     : 38.0427374233
+    lon_deg     : 23.7919904283
+    alt_m       : 185.1153
+    lat_dms     : 38°02'33.85472"N
+    lon_dms     : 23°47'31.16554"E
+  PROJ default (本地复算)
+    E_m         : 481598.258046
+    N_m         : 4210289.372388
+  HEPOS grid 修正 (本地复算)
+    grid_col    : 272.9991
+    grid_row    : 185.1447
+    dE_cm       : +37.5873
+    dN_cm       : +98.7528
+    dE_m        : +0.375873
+    dN_m        : +0.987528
+    E_corrected : 481598.633919
+    N_corrected : 4210290.359916
+  一致性 (/epsg_position - 复算 HEPOS-correct)
+    dE_m        : +0.004338
+    dN_m        : +0.008380
+    horiz_m     : 0.009436
+  /epsg_position (HEPOS-correct, 节点最终输出)
+    E_m         : 481598.638256
+    N_m         : 4210290.368296
+    Z_m         : 185.1153
+    yaw_deg     : -70.1674
+
+[frame 2/3]
+  gps_stamp     : 2026-05-07 14:43:18.011
+  epsg_stamp    : 2026-05-07 14:43:18.029
+  stamp_dt_s    : 0.017853
+  gps_status    : 2 (NavSatStatus)
+  service       : 0x0001
+  raw_gpgga     : $GPGGA,115513.90,3802.5642482,N,02347.5194283,E,4,25,0.6,185.1192,M,38.484,M,0.9,0001*71
+  WGS84
+    lat_deg     : 38.0427374700
+    lon_deg     : 23.7919904717
+    alt_m       : 185.1192
+    lat_dms     : 38°02'33.85489"N
+    lon_dms     : 23°47'31.16570"E
+  PROJ default (本地复算)
+    E_m         : 481598.261860
+    N_m         : 4210289.377557
+  HEPOS grid 修正 (本地复算)
+    grid_col    : 272.9991
+    grid_row    : 185.1447
+    dE_cm       : +37.5872
+    dN_cm       : +98.7528
+    dE_m        : +0.375872
+    dN_m        : +0.987528
+    E_corrected : 481598.637732
+    N_corrected : 4210290.365085
+  一致性 (/epsg_position - 复算 HEPOS-correct)
+    dE_m        : +0.004338
+    dN_m        : +0.008380
+    horiz_m     : 0.009436
+  /epsg_position (HEPOS-correct, 节点最终输出)
+    E_m         : 481598.642070
+    N_m         : 4210290.373465
+    Z_m         : 185.1192
+    yaw_deg     : -70.2871
+
+[frame 3/3]
+  gps_stamp     : 2026-05-07 14:43:18.117
+  epsg_stamp    : 2026-05-07 14:43:18.134
+  stamp_dt_s    : 0.017852
+  gps_status    : 2 (NavSatStatus)
+  service       : 0x0001
+  raw_gpgga     : $GPGGA,115513.90,3802.5642482,N,02347.5194283,E,4,25,0.6,185.1192,M,38.484,M,0.9,0001*71
+  WGS84
+    lat_deg     : 38.0427374733
+    lon_deg     : 23.7919904700
+    alt_m       : 185.1199
+    lat_dms     : 38°02'33.85490"N
+    lon_dms     : 23°47'31.16569"E
+  PROJ default (本地复算)
+    E_m         : 481598.261715
+    N_m         : 4210289.377928
+  HEPOS grid 修正 (本地复算)
+    grid_col    : 272.9991
+    grid_row    : 185.1447
+    dE_cm       : +37.5872
+    dN_cm       : +98.7528
+    dE_m        : +0.375872
+    dN_m        : +0.987528
+    E_corrected : 481598.637587
+    N_corrected : 4210290.365455
+  一致性 (/epsg_position - 复算 HEPOS-correct)
+    dE_m        : +0.004338
+    dN_m        : +0.008380
+    horiz_m     : 0.009436
+  /epsg_position (HEPOS-correct, 节点最终输出)
+    E_m         : 481598.641925
+    N_m         : 4210290.373835
+    Z_m         : 185.1199
+    yaw_deg     : -70.7956
+
+[summary pt1]
+  frames_used    : 3
+  E_mean         : 481598.640751  std=0.0018 m
+  N_mean         : 4210290.371865  std=0.0025 m
+  Z_mean         : 185.1181  std=0.0020 m
+  waypoint_line  : pt1,481598.6407505243,4210290.371865285,185.1181333333333,
+=== end pt1 ===
+=== record pt2 @ 2026-05-07 14:44:01.091 ===
+proj_default: pyproj EPSG:4326->EPSG:2100 (CRS-to-CRS, datum included)
+hepos_grid  : loaded dE_2km_V1-0.egrd (408x422 @ 2000.0m) origin=(-64400.0,3840000.0)
+gpgga_raw   : using gpgga_raw_20260507_132811_3161.log (45489 RAW lines)
+frames      : 3
+
+[frame 1/3]
+  gps_stamp     : 2026-05-07 14:44:00.011
+  epsg_stamp    : 2026-05-07 14:43:59.134
+  stamp_dt_s    : 0.876161
+  gps_status    : 2 (NavSatStatus)
+  service       : 0x0001
+  raw_gpgga     : $GPGGA,115555.90,3802.5635045,N,02347.5203471,E,4,26,0.5,185.1297,M,38.484,M,0.9,0001*7C
+  WGS84
+    lat_deg     : 38.0427250750
+    lon_deg     : 23.7920057850
+    alt_m       : 185.1297
+    lat_dms     : 38°02'33.81027"N
+    lon_dms     : 23°47'31.22083"E
+  PROJ default (本地复算)
+    E_m         : 481599.602482
+    N_m         : 4210287.999281
+  HEPOS grid 修正 (本地复算)
+    grid_col    : 272.9998
+    grid_row    : 185.1440
+    dE_cm       : +37.5888
+    dN_cm       : +98.7500
+    dE_m        : +0.375888
+    dN_m        : +0.987500
+    E_corrected : 481599.978370
+    N_corrected : 4210288.986782
+  一致性 (/epsg_position - 复算 HEPOS-correct)
+    dE_m        : +0.007845
+    dN_m        : +0.007262
+    horiz_m     : 0.010691
+  /epsg_position (HEPOS-correct, 节点最终输出)
+    E_m         : 481599.986215
+    N_m         : 4210288.994044
+    Z_m         : 185.1164
+    yaw_deg     : 40.6002
+
+[frame 2/3]
+  gps_stamp     : 2026-05-07 14:44:00.116
+  epsg_stamp    : 2026-05-07 14:44:00.029
+  stamp_dt_s    : 0.087532
+  gps_status    : 2 (NavSatStatus)
+  service       : 0x0001
+  raw_gpgga     : $GPGGA,115555.90,3802.5635045,N,02347.5203471,E,4,26,0.5,185.1297,M,38.484,M,0.9,0001*7C
+  WGS84
+    lat_deg     : 38.0427250633
+    lon_deg     : 23.7920057617
+    alt_m       : 185.1306
+    lat_dms     : 38°02'33.81023"N
+    lon_dms     : 23°47'31.22074"E
+  PROJ default (本地复算)
+    E_m         : 481599.600431
+    N_m         : 4210287.997991
+  HEPOS grid 修正 (本地复算)
+    grid_col    : 272.9998
+    grid_row    : 185.1440
+    dE_cm       : +37.5888
+    dN_cm       : +98.7500
+    dE_m        : +0.375888
+    dN_m        : +0.987500
+    E_corrected : 481599.976319
+    N_corrected : 4210288.985492
+  一致性 (/epsg_position - 复算 HEPOS-correct)
+    dE_m        : +0.006388
+    dN_m        : +0.009670
+    horiz_m     : 0.011590
+  /epsg_position (HEPOS-correct, 节点最终输出)
+    E_m         : 481599.982708
+    N_m         : 4210288.995162
+    Z_m         : 185.1297
+    yaw_deg     : 40.9605
+
+[frame 3/3]
+  gps_stamp     : 2026-05-07 14:44:00.211
+  epsg_stamp    : 2026-05-07 14:44:00.134
+  stamp_dt_s    : 0.077246
+  gps_status    : 2 (NavSatStatus)
+  service       : 0x0001
+  raw_gpgga     : $GPGGA,115555.90,3802.5635045,N,02347.5203471,E,4,26,0.5,185.1297,M,38.484,M,0.9,0001*7C
+  WGS84
+    lat_deg     : 38.0427250783
+    lon_deg     : 23.7920057533
+    alt_m       : 185.1176
+    lat_dms     : 38°02'33.81028"N
+    lon_dms     : 23°47'31.22071"E
+  PROJ default (本地复算)
+    E_m         : 481599.599704
+    N_m         : 4210287.999657
+  HEPOS grid 修正 (本地复算)
+    grid_col    : 272.9998
+    grid_row    : 185.1440
+    dE_cm       : +37.5888
+    dN_cm       : +98.7500
+    dE_m        : +0.375888
+    dN_m        : +0.987500
+    E_corrected : 481599.975592
+    N_corrected : 4210288.987158
+  一致性 (/epsg_position - 复算 HEPOS-correct)
+    dE_m        : +0.005066
+    dN_m        : +0.006714
+    horiz_m     : 0.008411
+  /epsg_position (HEPOS-correct, 节点最终输出)
+    E_m         : 481599.980657
+    N_m         : 4210288.993872
+    Z_m         : 185.1306
+    yaw_deg     : 40.6703
+
+[summary pt2]
+  frames_used    : 3
+  E_mean         : 481599.983193  std=0.0023 m
+  N_mean         : 4210288.994359  std=0.0006 m
+  Z_mean         : 185.1256  std=0.0065 m
+  waypoint_line  : pt2,481599.9831933705,4210288.994359371,185.1255666666667,
+=== end pt2 ===
+=== record pt3 @ 2026-05-07 14:44:46.632 ===
+proj_default: pyproj EPSG:4326->EPSG:2100 (CRS-to-CRS, datum included)
+hepos_grid  : loaded dE_2km_V1-0.egrd (408x422 @ 2000.0m) origin=(-64400.0,3840000.0)
+gpgga_raw   : using gpgga_raw_20260507_132811_3161.log (45944 RAW lines)
+frames      : 3
+
+[frame 1/3]
+  gps_stamp     : 2026-05-07 14:44:45.515
+  epsg_stamp    : 2026-05-07 14:44:45.533
+  stamp_dt_s    : 0.017754
+  gps_status    : 2 (NavSatStatus)
+  service       : 0x0001
+  raw_gpgga     : $GPGGA,115640.90,3802.5728947,N,02347.5270562,E,4,31,0.5,186.6907,M,38.485,M,0.9,0001*7B
+  WGS84
+    lat_deg     : 38.0428815733
+    lon_deg     : 23.7921175933
+    alt_m       : 186.6825
+    lat_dms     : 38°02'34.37366"N
+    lon_dms     : 23°47'31.62334"E
+  PROJ default (本地复算)
+    E_m         : 481609.452144
+    N_m         : 4210305.341398
+  HEPOS grid 修正 (本地复算)
+    grid_col    : 273.0047
+    grid_row    : 185.1527
+    dE_cm       : +37.5683
+    dN_cm       : +98.7604
+    dE_m        : +0.375683
+    dN_m        : +0.987604
+    E_corrected : 481609.827827
+    N_corrected : 4210306.329002
+  一致性 (/epsg_position - 复算 HEPOS-correct)
+    dE_m        : +0.004374
+    dN_m        : +0.008451
+    horiz_m     : 0.009516
+  /epsg_position (HEPOS-correct, 节点最终输出)
+    E_m         : 481609.832201
+    N_m         : 4210306.337453
+    Z_m         : 186.6825
+    yaw_deg     : 58.6943
+
+[frame 2/3]
+  gps_stamp     : 2026-05-07 14:44:45.612
+  epsg_stamp    : 2026-05-07 14:44:45.630
+  stamp_dt_s    : 0.017757
+  gps_status    : 2 (NavSatStatus)
+  service       : 0x0001
+  raw_gpgga     : $GPGGA,115640.90,3802.5728947,N,02347.5270562,E,4,31,0.5,186.6907,M,38.485,M,0.9,0001*7B
+  WGS84
+    lat_deg     : 38.0428815667
+    lon_deg     : 23.7921175867
+    alt_m       : 186.6851
+    lat_dms     : 38°02'34.37364"N
+    lon_dms     : 23°47'31.62331"E
+  PROJ default (本地复算)
+    E_m         : 481609.451557
+    N_m         : 4210305.340660
+  HEPOS grid 修正 (本地复算)
+    grid_col    : 273.0047
+    grid_row    : 185.1527
+    dE_cm       : +37.5683
+    dN_cm       : +98.7604
+    dE_m        : +0.375683
+    dN_m        : +0.987604
+    E_corrected : 481609.827240
+    N_corrected : 4210306.328264
+  一致性 (/epsg_position - 复算 HEPOS-correct)
+    dE_m        : +0.004375
+    dN_m        : +0.008451
+    horiz_m     : 0.009516
+  /epsg_position (HEPOS-correct, 节点最终输出)
+    E_m         : 481609.831614
+    N_m         : 4210306.336714
+    Z_m         : 186.6851
+    yaw_deg     : 58.9961
+
+[frame 3/3]
+  gps_stamp     : 2026-05-07 14:44:45.716
+  epsg_stamp    : 2026-05-07 14:44:45.734
+  stamp_dt_s    : 0.017722
+  gps_status    : 2 (NavSatStatus)
+  service       : 0x0001
+  raw_gpgga     : $GPGGA,115640.90,3802.5728947,N,02347.5270562,E,4,31,0.5,186.6907,M,38.485,M,0.9,0001*7B
+  WGS84
+    lat_deg     : 38.0428815667
+    lon_deg     : 23.7921175933
+    alt_m       : 186.6849
+    lat_dms     : 38°02'34.37364"N
+    lon_dms     : 23°47'31.62334"E
+  PROJ default (本地复算)
+    E_m         : 481609.452142
+    N_m         : 4210305.340658
+  HEPOS grid 修正 (本地复算)
+    grid_col    : 273.0047
+    grid_row    : 185.1527
+    dE_cm       : +37.5683
+    dN_cm       : +98.7604
+    dE_m        : +0.375683
+    dN_m        : +0.987604
+    E_corrected : 481609.827825
+    N_corrected : 4210306.328262
+  一致性 (/epsg_position - 复算 HEPOS-correct)
+    dE_m        : +0.004375
+    dN_m        : +0.008451
+    horiz_m     : 0.009516
+  /epsg_position (HEPOS-correct, 节点最终输出)
+    E_m         : 481609.832199
+    N_m         : 4210306.336713
+    Z_m         : 186.6849
+    yaw_deg     : 59.1674
+
+[summary pt3]
+  frames_used    : 3
+  E_mean         : 481609.832005  std=0.0003 m
+  N_mean         : 4210306.336960  std=0.0003 m
+  Z_mean         : 186.6842  std=0.0012 m
+  waypoint_line  : pt3,481609.8320049648,4210306.336960026,186.6841666666667,
+=== end pt3 ===
+=== record pt4 @ 2026-05-07 14:46:08.762 ===
+proj_default: pyproj EPSG:4326->EPSG:2100 (CRS-to-CRS, datum included)
+hepos_grid  : loaded dE_2km_V1-0.egrd (408x422 @ 2000.0m) origin=(-64400.0,3840000.0)
+gpgga_raw   : using gpgga_raw_20260507_132811_3161.log (46765 RAW lines)
+frames      : 3
+
+[frame 1/3]
+  gps_stamp     : 2026-05-07 14:46:07.608
+  epsg_stamp    : 2026-05-07 14:46:07.626
+  stamp_dt_s    : 0.017799
+  gps_status    : 2 (NavSatStatus)
+  service       : 0x0001
+  raw_gpgga     : $GPGGA,115802.90,3802.5766658,N,02347.5128263,E,4,29,0.5,186.5044,M,38.484,M,0.9,0001*75
+  WGS84
+    lat_deg     : 38.0429444500
+    lon_deg     : 23.7918804083
+    alt_m       : 186.5077
+    lat_dms     : 38°02'34.60002"N
+    lon_dms     : 23°47'30.76947"E
+  PROJ default (本地复算)
+    E_m         : 481588.655544
+    N_m         : 4210312.364351
+  HEPOS grid 修正 (本地复算)
+    grid_col    : 272.9943
+    grid_row    : 185.1562
+    dE_cm       : +37.5610
+    dN_cm       : +98.7870
+    dE_m        : +0.375610
+    dN_m        : +0.987870
+    E_corrected : 481589.031154
+    N_corrected : 4210313.352220
+  一致性 (/epsg_position - 复算 HEPOS-correct)
+    dE_m        : +0.004370
+    dN_m        : +0.008443
+    horiz_m     : 0.009507
+  /epsg_position (HEPOS-correct, 节点最终输出)
+    E_m         : 481589.035524
+    N_m         : 4210313.360663
+    Z_m         : 186.5077
+    yaw_deg     : 157.8012
+
+[frame 2/3]
+  gps_stamp     : 2026-05-07 14:46:07.712
+  epsg_stamp    : 2026-05-07 14:46:07.730
+  stamp_dt_s    : 0.017708
+  gps_status    : 2 (NavSatStatus)
+  service       : 0x0001
+  raw_gpgga     : $GPGGA,115802.90,3802.5766658,N,02347.5128263,E,4,29,0.5,186.5044,M,38.484,M,0.9,0001*75
+  WGS84
+    lat_deg     : 38.0429444433
+    lon_deg     : 23.7918804033
+    alt_m       : 186.5086
+    lat_dms     : 38°02'34.60000"N
+    lon_dms     : 23°47'30.76945"E
+  PROJ default (本地复算)
+    E_m         : 481588.655103
+    N_m         : 4210312.363612
+  HEPOS grid 修正 (本地复算)
+    grid_col    : 272.9943
+    grid_row    : 185.1562
+    dE_cm       : +37.5610
+    dN_cm       : +98.7870
+    dE_m        : +0.375610
+    dN_m        : +0.987870
+    E_corrected : 481589.030713
+    N_corrected : 4210313.351482
+  一致性 (/epsg_position - 复算 HEPOS-correct)
+    dE_m        : +0.004370
+    dN_m        : +0.008443
+    horiz_m     : 0.009507
+  /epsg_position (HEPOS-correct, 节点最终输出)
+    E_m         : 481589.035084
+    N_m         : 4210313.359924
+    Z_m         : 186.5086
+    yaw_deg     : 158.1829
+
+[frame 3/3]
+  gps_stamp     : 2026-05-07 14:46:07.808
+  epsg_stamp    : 2026-05-07 14:46:07.826
+  stamp_dt_s    : 0.017812
+  gps_status    : 2 (NavSatStatus)
+  service       : 0x0001
+  raw_gpgga     : $GPGGA,115802.90,3802.5766658,N,02347.5128263,E,4,29,0.5,186.5044,M,38.484,M,0.9,0001*75
+  WGS84
+    lat_deg     : 38.0429444683
+    lon_deg     : 23.7918803967
+    alt_m       : 186.4988
+    lat_dms     : 38°02'34.60009"N
+    lon_dms     : 23°47'30.76943"E
+  PROJ default (本地复算)
+    E_m         : 481588.654525
+    N_m         : 4210312.366387
+  HEPOS grid 修正 (本地复算)
+    grid_col    : 272.9943
+    grid_row    : 185.1562
+    dE_cm       : +37.5610
+    dN_cm       : +98.7870
+    dE_m        : +0.375610
+    dN_m        : +0.987870
+    E_corrected : 481589.030134
+    N_corrected : 4210313.354257
+  一致性 (/epsg_position - 复算 HEPOS-correct)
+    dE_m        : +0.004370
+    dN_m        : +0.008442
+    horiz_m     : 0.009506
+  /epsg_position (HEPOS-correct, 节点最终输出)
+    E_m         : 481589.034505
+    N_m         : 4210313.362699
+    Z_m         : 186.4988
+    yaw_deg     : 158.5913
+
+[summary pt4]
+  frames_used    : 3
+  E_mean         : 481589.035037  std=0.0004 m
+  N_mean         : 4210313.361095  std=0.0012 m
+  Z_mean         : 186.5050  std=0.0044 m
+  waypoint_line  : pt4,481589.0350373558,4210313.361095436,186.5050333333333,
+=== end pt4 ===
+=== record pt5 @ 2026-05-07 14:47:10.264 ===
+proj_default: pyproj EPSG:4326->EPSG:2100 (CRS-to-CRS, datum included)
+hepos_grid  : loaded dE_2km_V1-0.egrd (408x422 @ 2000.0m) origin=(-64400.0,3840000.0)
+gpgga_raw   : using gpgga_raw_20260507_132811_3161.log (47380 RAW lines)
+frames      : 3
+
+[frame 1/3]
+  gps_stamp     : 2026-05-07 14:47:09.113
+  epsg_stamp    : 2026-05-07 14:47:09.131
+  stamp_dt_s    : 0.017839
+  gps_status    : 2 (NavSatStatus)
+  service       : 0x0001
+  raw_gpgga     : $GPGGA,115904.90,3802.5798882,N,02347.5091769,E,4,29,0.5,186.4167,M,38.484,M,0.9,0001*77
+  WGS84
+    lat_deg     : 38.0429981350
+    lon_deg     : 23.7918196217
+    alt_m       : 186.4163
+    lat_dms     : 38°02'34.79329"N
+    lon_dms     : 23°47'30.55064"E
+  PROJ default (本地复算)
+    E_m         : 481583.335052
+    N_m         : 4210318.332837
+  HEPOS grid 修正 (本地复算)
+    grid_col    : 272.9917
+    grid_row    : 185.1592
+    dE_cm       : +37.5542
+    dN_cm       : +98.7984
+    dE_m        : +0.375542
+    dN_m        : +0.987984
+    E_corrected : 481583.710594
+    N_corrected : 4210319.320821
+  一致性 (/epsg_position - 复算 HEPOS-correct)
+    dE_m        : +0.004368
+    dN_m        : +0.008439
+    horiz_m     : 0.009502
+  /epsg_position (HEPOS-correct, 节点最终输出)
+    E_m         : 481583.714962
+    N_m         : 4210319.329259
+    Z_m         : 186.4163
+    yaw_deg     : 147.8523
+
+[frame 2/3]
+  gps_stamp     : 2026-05-07 14:47:09.207
+  epsg_stamp    : 2026-05-07 14:47:09.225
+  stamp_dt_s    : 0.017788
+  gps_status    : 2 (NavSatStatus)
+  service       : 0x0001
+  raw_gpgga     : $GPGGA,115904.90,3802.5798882,N,02347.5091769,E,4,29,0.5,186.4167,M,38.484,M,0.9,0001*77
+  WGS84
+    lat_deg     : 38.0429981350
+    lon_deg     : 23.7918196067
+    alt_m       : 186.4156
+    lat_dms     : 38°02'34.79329"N
+    lon_dms     : 23°47'30.55058"E
+  PROJ default (本地复算)
+    E_m         : 481583.333736
+    N_m         : 4210318.332840
+  HEPOS grid 修正 (本地复算)
+    grid_col    : 272.9917
+    grid_row    : 185.1592
+    dE_cm       : +37.5542
+    dN_cm       : +98.7984
+    dE_m        : +0.375542
+    dN_m        : +0.987984
+    E_corrected : 481583.709278
+    N_corrected : 4210319.320824
+  一致性 (/epsg_position - 复算 HEPOS-correct)
+    dE_m        : +0.004368
+    dN_m        : +0.008438
+    horiz_m     : 0.009502
+  /epsg_position (HEPOS-correct, 节点最终输出)
+    E_m         : 481583.713646
+    N_m         : 4210319.329262
+    Z_m         : 186.4156
+    yaw_deg     : 147.9925
+
+[frame 3/3]
+  gps_stamp     : 2026-05-07 14:47:09.312
+  epsg_stamp    : 2026-05-07 14:47:09.330
+  stamp_dt_s    : 0.017833
+  gps_status    : 2 (NavSatStatus)
+  service       : 0x0001
+  raw_gpgga     : $GPGGA,115904.90,3802.5798882,N,02347.5091769,E,4,29,0.5,186.4167,M,38.484,M,0.9,0001*77
+  WGS84
+    lat_deg     : 38.0429981383
+    lon_deg     : 23.7918196067
+    alt_m       : 186.4154
+    lat_dms     : 38°02'34.79330"N
+    lon_dms     : 23°47'30.55058"E
+  PROJ default (本地复算)
+    E_m         : 481583.333736
+    N_m         : 4210318.333210
+  HEPOS grid 修正 (本地复算)
+    grid_col    : 272.9917
+    grid_row    : 185.1592
+    dE_cm       : +37.5542
+    dN_cm       : +98.7984
+    dE_m        : +0.375542
+    dN_m        : +0.987984
+    E_corrected : 481583.709279
+    N_corrected : 4210319.321194
+  一致性 (/epsg_position - 复算 HEPOS-correct)
+    dE_m        : +0.004368
+    dN_m        : +0.008438
+    horiz_m     : 0.009502
+  /epsg_position (HEPOS-correct, 节点最终输出)
+    E_m         : 481583.713647
+    N_m         : 4210319.329632
+    Z_m         : 186.4154
+    yaw_deg     : 147.7082
+
+[summary pt5]
+  frames_used    : 3
+  E_mean         : 481583.714085  std=0.0006 m
+  N_mean         : 4210319.329385  std=0.0002 m
+  Z_mean         : 186.4158  std=0.0004 m
+  waypoint_line  : pt5,481583.7140849954,4210319.329384589,186.4157666666667,
+=== end pt5 ===
+=== record pt6 @ 2026-05-07 14:48:10.746 ===
+proj_default: pyproj EPSG:4326->EPSG:2100 (CRS-to-CRS, datum included)
+hepos_grid  : loaded dE_2km_V1-0.egrd (408x422 @ 2000.0m) origin=(-64400.0,3840000.0)
+gpgga_raw   : using gpgga_raw_20260507_132811_3161.log (47985 RAW lines)
+frames      : 3
+
+[frame 1/3]
+  gps_stamp     : 2026-05-07 14:48:09.604
+  epsg_stamp    : 2026-05-07 14:48:09.622
+  stamp_dt_s    : 0.017798
+  gps_status    : 2 (NavSatStatus)
+  service       : 0x0001
+  raw_gpgga     : $GPGGA,120004.90,3802.5866625,N,02347.4939132,E,4,29,0.5,186.5068,M,38.483,M,0.9,0001*7F
+  WGS84
+    lat_deg     : 38.0431110800
+    lon_deg     : 23.7915651733
+    alt_m       : 186.4985
+    lat_dms     : 38°02'35.19989"N
+    lon_dms     : 23°47'29.63462"E
+  PROJ default (本地复算)
+    E_m         : 481561.036162
+    N_m         : 4210330.914515
+  HEPOS grid 修正 (本地复算)
+    grid_col    : 272.9805
+    grid_row    : 185.1655
+    dE_cm       : +37.5402
+    dN_cm       : +98.8325
+    dE_m        : +0.375402
+    dN_m        : +0.988325
+    E_corrected : 481561.411564
+    N_corrected : 4210331.902840
+  一致性 (/epsg_position - 复算 HEPOS-correct)
+    dE_m        : +0.004370
+    dN_m        : +0.008442
+    horiz_m     : 0.009506
+  /epsg_position (HEPOS-correct, 节点最终输出)
+    E_m         : 481561.415934
+    N_m         : 4210331.911282
+    Z_m         : 186.4985
+    yaw_deg     : 146.7665
+
+[frame 2/3]
+  gps_stamp     : 2026-05-07 14:48:09.708
+  epsg_stamp    : 2026-05-07 14:48:09.726
+  stamp_dt_s    : 0.017843
+  gps_status    : 2 (NavSatStatus)
+  service       : 0x0001
+  raw_gpgga     : $GPGGA,120004.90,3802.5866625,N,02347.4939132,E,4,29,0.5,186.5068,M,38.483,M,0.9,0001*7F
+  WGS84
+    lat_deg     : 38.0431110733
+    lon_deg     : 23.7915651683
+    alt_m       : 186.4995
+    lat_dms     : 38°02'35.19986"N
+    lon_dms     : 23°47'29.63461"E
+  PROJ default (本地复算)
+    E_m         : 481561.035722
+    N_m         : 4210330.913777
+  HEPOS grid 修正 (本地复算)
+    grid_col    : 272.9805
+    grid_row    : 185.1655
+    dE_cm       : +37.5402
+    dN_cm       : +98.8325
+    dE_m        : +0.375402
+    dN_m        : +0.988325
+    E_corrected : 481561.411124
+    N_corrected : 4210331.902101
+  一致性 (/epsg_position - 复算 HEPOS-correct)
+    dE_m        : +0.004370
+    dN_m        : +0.008442
+    horiz_m     : 0.009506
+  /epsg_position (HEPOS-correct, 节点最终输出)
+    E_m         : 481561.415494
+    N_m         : 4210331.910544
+    Z_m         : 186.4995
+    yaw_deg     : 146.0403
+
+[frame 3/3]
+  gps_stamp     : 2026-05-07 14:48:09.804
+  epsg_stamp    : 2026-05-07 14:48:09.822
+  stamp_dt_s    : 0.017809
+  gps_status    : 2 (NavSatStatus)
+  service       : 0x0001
+  raw_gpgga     : $GPGGA,120004.90,3802.5866625,N,02347.4939132,E,4,29,0.5,186.5068,M,38.483,M,0.9,0001*7F
+  WGS84
+    lat_deg     : 38.0431110333
+    lon_deg     : 23.7915652133
+    alt_m       : 186.5005
+    lat_dms     : 38°02'35.19972"N
+    lon_dms     : 23°47'29.63477"E
+  PROJ default (本地复算)
+    E_m         : 481561.039661
+    N_m         : 4210330.909330
+  HEPOS grid 修正 (本地复算)
+    grid_col    : 272.9805
+    grid_row    : 185.1655
+    dE_cm       : +37.5402
+    dN_cm       : +98.8325
+    dE_m        : +0.375402
+    dN_m        : +0.988325
+    E_corrected : 481561.415062
+    N_corrected : 4210331.897654
+  一致性 (/epsg_position - 复算 HEPOS-correct)
+    dE_m        : +0.004370
+    dN_m        : +0.008442
+    horiz_m     : 0.009506
+  /epsg_position (HEPOS-correct, 节点最终输出)
+    E_m         : 481561.419433
+    N_m         : 4210331.906097
+    Z_m         : 186.5005
+    yaw_deg     : 146.4496
+
+[summary pt6]
+  frames_used    : 3
+  E_mean         : 481561.416954  std=0.0018 m
+  N_mean         : 4210331.909308  std=0.0023 m
+  Z_mean         : 186.4995  std=0.0008 m
+  waypoint_line  : pt6,481561.4169535923,4210331.909307539,186.4995,
+=== end pt6 ===
+=== record pt7 @ 2026-05-07 14:48:40.065 ===
+proj_default: pyproj EPSG:4326->EPSG:2100 (CRS-to-CRS, datum included)
+hepos_grid  : loaded dE_2km_V1-0.egrd (408x422 @ 2000.0m) origin=(-64400.0,3840000.0)
+gpgga_raw   : using gpgga_raw_20260507_132811_3161.log (48278 RAW lines)
+frames      : 3
+
+[frame 1/3]
+  gps_stamp     : 2026-05-07 14:48:38.908
+  epsg_stamp    : 2026-05-07 14:48:38.925
+  stamp_dt_s    : 0.017763
+  gps_status    : 2 (NavSatStatus)
+  service       : 0x0001
+  raw_gpgga     : $GPGGA,120034.90,3802.5827264,N,02347.4908919,E,4,29,0.5,185.9714,M,38.483,M,0.9,0001*78
+  WGS84
+    lat_deg     : 38.0430454167
+    lon_deg     : 23.7915148600
+    alt_m       : 185.9689
+    lat_dms     : 38°02'34.96350"N
+    lon_dms     : 23°47'29.45350"E
+  PROJ default (本地复算)
+    E_m         : 481556.605008
+    N_m         : 4210323.638828
+  HEPOS grid 修正 (本地复算)
+    grid_col    : 272.9783
+    grid_row    : 185.1618
+    dE_cm       : +37.5486
+    dN_cm       : +98.8284
+    dE_m        : +0.375486
+    dN_m        : +0.988284
+    E_corrected : 481556.980494
+    N_corrected : 4210324.627112
+  一致性 (/epsg_position - 复算 HEPOS-correct)
+    dE_m        : +0.004358
+    dN_m        : +0.008418
+    horiz_m     : 0.009479
+  /epsg_position (HEPOS-correct, 节点最终输出)
+    E_m         : 481556.984852
+    N_m         : 4210324.635530
+    Z_m         : 185.9689
+    yaw_deg     : -96.6745
+
+[frame 2/3]
+  gps_stamp     : 2026-05-07 14:48:39.004
+  epsg_stamp    : 2026-05-07 14:48:39.021
+  stamp_dt_s    : 0.017858
+  gps_status    : 2 (NavSatStatus)
+  service       : 0x0001
+  raw_gpgga     : $GPGGA,120034.90,3802.5827264,N,02347.4908919,E,4,29,0.5,185.9714,M,38.483,M,0.9,0001*78
+  WGS84
+    lat_deg     : 38.0430454400
+    lon_deg     : 23.7915148650
+    alt_m       : 185.9714
+    lat_dms     : 38°02'34.96358"N
+    lon_dms     : 23°47'29.45351"E
+  PROJ default (本地复算)
+    E_m         : 481556.605452
+    N_m         : 4210323.641416
+  HEPOS grid 修正 (本地复算)
+    grid_col    : 272.9783
+    grid_row    : 185.1618
+    dE_cm       : +37.5486
+    dN_cm       : +98.8284
+    dE_m        : +0.375486
+    dN_m        : +0.988284
+    E_corrected : 481556.980938
+    N_corrected : 4210324.629700
+  一致性 (/epsg_position - 复算 HEPOS-correct)
+    dE_m        : +0.004358
+    dN_m        : +0.008418
+    horiz_m     : 0.009479
+  /epsg_position (HEPOS-correct, 节点最终输出)
+    E_m         : 481556.985296
+    N_m         : 4210324.638119
+    Z_m         : 185.9714
+    yaw_deg     : -96.5311
+
+[frame 3/3]
+  gps_stamp     : 2026-05-07 14:48:39.110
+  epsg_stamp    : 2026-05-07 14:48:39.128
+  stamp_dt_s    : 0.017850
+  gps_status    : 2 (NavSatStatus)
+  service       : 0x0001
+  raw_gpgga     : $GPGGA,120034.90,3802.5827264,N,02347.4908919,E,4,29,0.5,185.9714,M,38.483,M,0.9,0001*78
+  WGS84
+    lat_deg     : 38.0430454400
+    lon_deg     : 23.7915148683
+    alt_m       : 185.9713
+    lat_dms     : 38°02'34.96358"N
+    lon_dms     : 23°47'29.45353"E
+  PROJ default (本地复算)
+    E_m         : 481556.605745
+    N_m         : 4210323.641415
+  HEPOS grid 修正 (本地复算)
+    grid_col    : 272.9783
+    grid_row    : 185.1618
+    dE_cm       : +37.5486
+    dN_cm       : +98.8284
+    dE_m        : +0.375486
+    dN_m        : +0.988284
+    E_corrected : 481556.981231
+    N_corrected : 4210324.629700
+  一致性 (/epsg_position - 复算 HEPOS-correct)
+    dE_m        : +0.004358
+    dN_m        : +0.008418
+    horiz_m     : 0.009479
+  /epsg_position (HEPOS-correct, 节点最终输出)
+    E_m         : 481556.985589
+    N_m         : 4210324.638118
+    Z_m         : 185.9713
+    yaw_deg     : -96.0556
+
+[summary pt7]
+  frames_used    : 3
+  E_mean         : 481556.985246  std=0.0003 m
+  N_mean         : 4210324.637256  std=0.0012 m
+  Z_mean         : 185.9705  std=0.0012 m
+  waypoint_line  : pt7,481556.9852455907,4210324.637255636,185.9705333333333,
+=== end pt7 ===
+=== record pt8 @ 2026-05-07 14:50:25.386 ===
+proj_default: pyproj EPSG:4326->EPSG:2100 (CRS-to-CRS, datum included)
+hepos_grid  : loaded dE_2km_V1-0.egrd (408x422 @ 2000.0m) origin=(-64400.0,3840000.0)
+gpgga_raw   : using gpgga_raw_20260507_132811_3161.log (49331 RAW lines)
+frames      : 3
+
+[frame 1/3]
+  gps_stamp     : 2026-05-07 14:50:24.201
+  epsg_stamp    : 2026-05-07 14:50:24.219
+  stamp_dt_s    : 0.017651
+  gps_status    : 2 (NavSatStatus)
+  service       : 0x0001
+  raw_gpgga     : $GPGGA,120219.90,3802.5786611,N,02347.4878224,E,4,28,0.5,185.5257,M,38.483,M,0.9,0001*7B
+  WGS84
+    lat_deg     : 38.0429777500
+    lon_deg     : 23.7914637417
+    alt_m       : 185.5244
+    lat_dms     : 38°02'34.71990"N
+    lon_dms     : 23°47'29.26947"E
+  PROJ default (本地复算)
+    E_m         : 481552.102711
+    N_m         : 4210316.141024
+  HEPOS grid 修正 (本地复算)
+    grid_col    : 272.9761
+    grid_row    : 185.1581
+    dE_cm       : +37.5573
+    dN_cm       : +98.8242
+    dE_m        : +0.375573
+    dN_m        : +0.988242
+    E_corrected : 481552.478284
+    N_corrected : 4210317.129266
+  一致性 (/epsg_position - 复算 HEPOS-correct)
+    dE_m        : +0.004347
+    dN_m        : +0.008398
+    horiz_m     : 0.009457
+  /epsg_position (HEPOS-correct, 节点最终输出)
+    E_m         : 481552.482631
+    N_m         : 4210317.137664
+    Z_m         : 185.5244
+    yaw_deg     : -62.6655
+
+[frame 2/3]
+  gps_stamp     : 2026-05-07 14:50:24.305
+  epsg_stamp    : 2026-05-07 14:50:24.323
+  stamp_dt_s    : 0.017806
+  gps_status    : 2 (NavSatStatus)
+  service       : 0x0001
+  raw_gpgga     : $GPGGA,120219.90,3802.5786611,N,02347.4878224,E,4,28,0.5,185.5257,M,38.483,M,0.9,0001*7B
+  WGS84
+    lat_deg     : 38.0429777533
+    lon_deg     : 23.7914637467
+    alt_m       : 185.5245
+    lat_dms     : 38°02'34.71991"N
+    lon_dms     : 23°47'29.26949"E
+  PROJ default (本地复算)
+    E_m         : 481552.103150
+    N_m         : 4210316.141393
+  HEPOS grid 修正 (本地复算)
+    grid_col    : 272.9761
+    grid_row    : 185.1581
+    dE_cm       : +37.5573
+    dN_cm       : +98.8242
+    dE_m        : +0.375573
+    dN_m        : +0.988242
+    E_corrected : 481552.478724
+    N_corrected : 4210317.129635
+  一致性 (/epsg_position - 复算 HEPOS-correct)
+    dE_m        : +0.004347
+    dN_m        : +0.008398
+    horiz_m     : 0.009457
+  /epsg_position (HEPOS-correct, 节点最终输出)
+    E_m         : 481552.483071
+    N_m         : 4210317.138033
+    Z_m         : 185.5245
+    yaw_deg     : -62.6365
+
+[frame 3/3]
+  gps_stamp     : 2026-05-07 14:50:24.401
+  epsg_stamp    : 2026-05-07 14:50:24.418
+  stamp_dt_s    : 0.017836
+  gps_status    : 2 (NavSatStatus)
+  service       : 0x0001
+  raw_gpgga     : $GPGGA,120219.90,3802.5786611,N,02347.4878224,E,4,28,0.5,185.5257,M,38.483,M,0.9,0001*7B
+  WGS84
+    lat_deg     : 38.0429777567
+    lon_deg     : 23.7914636283
+    alt_m       : 185.5115
+    lat_dms     : 38°02'34.71992"N
+    lon_dms     : 23°47'29.26906"E
+  PROJ default (本地复算)
+    E_m         : 481552.092768
+    N_m         : 4210316.141786
+  HEPOS grid 修正 (本地复算)
+    grid_col    : 272.9760
+    grid_row    : 185.1581
+    dE_cm       : +37.5573
+    dN_cm       : +98.8242
+    dE_m        : +0.375573
+    dN_m        : +0.988242
+    E_corrected : 481552.468341
+    N_corrected : 4210317.130028
+  一致性 (/epsg_position - 复算 HEPOS-correct)
+    dE_m        : +0.004347
+    dN_m        : +0.008398
+    horiz_m     : 0.009456
+  /epsg_position (HEPOS-correct, 节点最终输出)
+    E_m         : 481552.472688
+    N_m         : 4210317.138426
+    Z_m         : 185.5115
+    yaw_deg     : -63.5363
+
+[summary pt8]
+  frames_used    : 3
+  E_mean         : 481552.479463  std=0.0048 m
+  N_mean         : 4210317.138041  std=0.0003 m
+  Z_mean         : 185.5201  std=0.0061 m
+  waypoint_line  : pt8,481552.4794633861,4210317.138041264,185.5201333333333,
+=== end pt8 ===
