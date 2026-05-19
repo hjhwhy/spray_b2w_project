@@ -40,12 +40,9 @@ public:
 private:
     void joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg)
     {
-        if (msg->buttons.size() > 2) {
+        if (msg->buttons.size() > 1) {
             int res = 0;
-            if (msg->buttons[2] != 0) {
-                res = sport_client_.Damp();
-                RCLCPP_WARN(this->get_logger(), "Executed Damp from APP command.");
-            } else if (msg->buttons[0] != 0) {
+            if (msg->buttons[0] != 0) {
                 res = sport_client_.StandDown();
                 RCLCPP_INFO(this->get_logger(), "Executed StandDown from APP command.");
             } else if (msg->buttons[1] != 0) {

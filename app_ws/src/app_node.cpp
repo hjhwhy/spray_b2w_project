@@ -387,14 +387,13 @@ private:
             return;
         }
 
-        if (instruction_type == 0x0A || instruction_type == 0x0B || instruction_type == 0xFF) {
+        if (instruction_type == 0x0A || instruction_type == 0x0B) {
             sensor_msgs::msg::Joy joy_msg;
             joy_msg.axes.resize(3, 0.0F);
-            joy_msg.buttons.resize(3, 0);
+            joy_msg.buttons.resize(2, 0);
             switch (instruction_type) {
                 case 0x0A: joy_msg.buttons[0] = 1; break;
                 case 0x0B: joy_msg.buttons[1] = 1; break;
-                case 0xFF: joy_msg.buttons[2] = 1; break;
                 default: break;
             }
             joy_pub_->publish(joy_msg);
@@ -618,23 +617,22 @@ private:
         std::remove("/tmp/start_all.ready");
     }
 
-    void publishSafetyDamp(const std::string &reason)
+    void publishSafetyStopMove(const std::string &reason)
     {
         sensor_msgs::msg::Joy joy_msg;
         joy_msg.axes.resize(3, 0.0F);
-        joy_msg.buttons.resize(3, 0);
-        joy_msg.buttons[2] = 1;  // b2w_teleop_node maps button[2] to SportClient::Damp().
+        joy_msg.buttons.resize(0);
 
         for (int i = 0; i < 3; ++i) {
             joy_pub_->publish(joy_msg);
             std::this_thread::sleep_for(std::chrono::milliseconds(20));
         }
-        RCLCPP_ERROR(this->get_logger(), "Published fail-safe Damp Joy command: %s", reason.c_str());
+        RCLCPP_ERROR(this->get_logger(), "Published fail-safe StopMove Joy command: %s", reason.c_str());
     }
 
     int triggerStartAllFailSafeStop(const std::string &reason)
     {
-        publishSafetyDamp(reason);
+        publishSafetyStopMove(reason);
         RCLCPP_ERROR(
             this->get_logger(),
             "Triggering start_all fail-safe stop because %s. This intentionally stops the autonomous task instead of letting the robot continue uncontrolled.",
@@ -779,6 +777,14 @@ private:
                                 "APP client reconnected before disconnect auto-pause fired; skipping stale auto-pause timer.");
                             return;
                         }
+                    }
+                    if (!canAttemptStartAllControl()) {
+                        RCLCPP_WARN(
+                            this->get_logger(),
+                            "APP client disconnected timeout %.1fs reached, but start_all is not controllable; publishing StopMove only.",
+                            client_disconnect_auto_pause_seconds_);
+                        publishSafetyStopMove("APP client disconnected timeout: start_all not controllable");
+                        return;
                     }
                     RCLCPP_ERROR(
                         this->get_logger(),

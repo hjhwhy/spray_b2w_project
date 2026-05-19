@@ -312,8 +312,8 @@ APP ↔ 主控通过 TCP 长连接通信：
 | 0x02 | 已完成喷涂点云（PointCloud2） |
 | 0x03 | 待喷涂点云（PointCloud2） |
 | 0x04 | 机器人轨迹（/b2w_path） |
-| 0x05 | 作业进度（/progress） |
-| 0x06 | 日志/报错信息 |
+| 0x05 | 当前电机温度（/motors_temperatures） |
+| 0x06 | 作业进度（/progress） |
 | 0x07 | 当前位置（/b2w_odom） |
 
 **APP → 机器人（控制指令，功能码 0x08，数据第1字节为子命令）**：

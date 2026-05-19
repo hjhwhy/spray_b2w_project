@@ -29,6 +29,7 @@
 #include <unitree/robot/b2/sport/sport_client.hpp>
 #include <sensor_msgs/msg/battery_state.hpp>
 #include <std_msgs/msg/float32_multi_array.hpp>
+#include <std_msgs/msg/byte.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -145,9 +146,11 @@ public:
         motor_temp_publisher_ = this->create_publisher<std_msgs::msg::Float32MultiArray>("/motors_temperatures", 10);
         odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("/b2w_odom", 50);
         path_pub_ = this->create_publisher<nav_msgs::msg::Path>("/b2w_path", 10);
+        progress_pub_ = this->create_publisher<std_msgs::msg::Byte>("/progress", 10);
         acquired_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/acquired_points", 10);
         unacquired_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/unacquired_points", 10);
         path_msg_.header.frame_id = "map";
+        publishProgress();
         odom_rtk_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
             "/epsg_position", 10, [this](const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
                  this->RtkOdomCallback(msg);
@@ -835,6 +838,7 @@ private:
         {
             sport_client_.Move(0, 0, 0);
             RCLCPP_INFO(this->get_logger(), "Ready to fetch next waypoint...");
+            publishProgress();
             publishWaypointClouds();
             state_ = WAITING_FOR_WAYPOINT;   
             break;
@@ -935,6 +939,7 @@ private:
     std::unique_ptr<ChannelSubscriber<unitree_go::msg::dds_::LowState_>> lowstate_subscriber_;
     nav_msgs::msg::Path path_msg_;
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
+    rclcpp::Publisher<std_msgs::msg::Byte>::SharedPtr progress_pub_;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr acquired_pub_;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr unacquired_pub_;
 
@@ -1022,6 +1027,22 @@ private:
             *iz = waypoints_[i].z;
         }
         return cloud;
+    }
+
+    void publishProgress()
+    {
+        std_msgs::msg::Byte msg;
+        if (waypoints_.empty()) {
+            msg.data = 0;
+        } else {
+            const double ratio = static_cast<double>(current_waypoint_index_) /
+                                 static_cast<double>(waypoints_.size());
+            const int percent = std::clamp(static_cast<int>(std::round(ratio * 100.0)), 0, 100);
+            msg.data = static_cast<uint8_t>(percent);
+        }
+        progress_pub_->publish(msg);
+        RCLCPP_INFO(this->get_logger(), "Progress: %u%% (%zu/%zu waypoints completed)",
+                    static_cast<unsigned>(msg.data), current_waypoint_index_, waypoints_.size());
     }
 
     void publishWaypointClouds()
