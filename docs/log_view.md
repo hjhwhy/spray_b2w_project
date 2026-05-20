@@ -148,7 +148,7 @@ B2W 底盘
 | 0x0A | 趴下 | `/joy.buttons` | `StandDown()` |
 | 0x0B | 站立 | `/joy.buttons` | `StandUp()` |
 | 0x10 | 恢复 | 调用 `/erase_emergency_stop` 服务 | b2w_nav_node 解除暂停 |
-| 0xFF | 急停阻尼 | `/joy.buttons` | `Damp()` |
+| 0xFF | APP 心跳 | 只更新心跳在线状态 | 不发布 `/joy`，不是 Damp |
 
 ### 5.2 实时跟踪命令
 

@@ -32,6 +32,7 @@
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/point_cloud2_iterator.hpp>
 #include <fstream>
+#include <functional>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -51,9 +52,13 @@ public:
     : Node("remote_control_node") {
         this->declare_parameter<int>("listen_port", 9002);
         this->declare_parameter<double>("client_disconnect_auto_pause_seconds", 8.0);
+        this->declare_parameter<double>("heartbeat_timeout_seconds", 3.5);
+        this->declare_parameter<bool>("heartbeat_required_after_control", true);
         int port = this->get_parameter("listen_port").as_int();
         client_disconnect_auto_pause_seconds_ =
             this->get_parameter("client_disconnect_auto_pause_seconds").as_double();
+        heartbeat_timeout_seconds_ = this->get_parameter("heartbeat_timeout_seconds").as_double();
+        heartbeat_required_after_control_ = this->get_parameter("heartbeat_required_after_control").as_bool();
         if (client_disconnect_auto_pause_seconds_ > 0.0 && client_disconnect_auto_pause_seconds_ < 3.0) {
             RCLCPP_WARN(
                 this->get_logger(),
@@ -100,6 +105,9 @@ public:
         });
         emergency_stop_client_ = this->create_client<std_srvs::srv::Trigger>("/emergency_stop");
         erase_emergency_stop_client_ = this->create_client<std_srvs::srv::Trigger>("/erase_emergency_stop");
+        heartbeat_watchdog_timer_ = this->create_wall_timer(
+            std::chrono::milliseconds(500),
+            std::bind(&RemoteControlNode::checkHeartbeatWatchdog, this));
 
         tcp_thread_ = std::thread(&RemoteControlNode::runTcpServer, this, port);
     }
@@ -184,6 +192,7 @@ private:
                 client_sock_ = new_socket;
             }
             cancelDisconnectAutoPause("APP client reconnect/cancel disconnect auto-pause");
+            resetHeartbeatForNewClient("APP client connected");
 
             char client_ip[INET_ADDRSTRLEN];
             inet_ntop(AF_INET, &address.sin_addr, client_ip, INET_ADDRSTRLEN);
@@ -286,6 +295,37 @@ private:
             return true;
         }
 
+        if (func_code == 0xFF) {
+            if (buffer.size() < 7) {
+                return false;
+            }
+            const uint16_t data_len = buffer[2] | (static_cast<uint16_t>(buffer[3]) << 8);
+            if (data_len != 1) {
+                RCLCPP_WARN(this->get_logger(), "Discarding invalid heartbeat packet with data_len=%u", data_len);
+                buffer.erase(buffer.begin());
+                return true;
+            }
+            total_len = 1 + 1 + 2 + data_len + 2 + 1;
+            if (buffer.size() < total_len) {
+                return false;
+            }
+            if (buffer[total_len - 1] != 0x5F) {
+                RCLCPP_WARN(this->get_logger(), "Invalid tail for heartbeat packet");
+                buffer.erase(buffer.begin());
+                return true;
+            }
+            if (buffer[4] != 0xFF) {
+                RCLCPP_WARN(this->get_logger(), "Invalid heartbeat value: 0x%02X", buffer[4]);
+                buffer.erase(buffer.begin(), buffer.begin() + total_len);
+                return true;
+            }
+
+            logPacket("RX HEARTBEAT", buffer.data(), total_len, this->get_logger());
+            handleHeartbeatPacket();
+            buffer.erase(buffer.begin(), buffer.begin() + total_len);
+            return true;
+        }
+
         if (func_code == 0x09) {
             if (buffer.size() < 7) {
                 return false;
@@ -320,6 +360,7 @@ private:
         }
 
         const uint8_t instruction_type = payload[0];
+        markClientActivity();
         RCLCPP_INFO(this->get_logger(), "Decoded instruction type: 0x%02X", instruction_type);
         if (data_len > 1) {
             RCLCPP_INFO(this->get_logger(), "Command 0x%02X carries %u extra payload bytes; they will be ignored",
@@ -345,6 +386,7 @@ private:
                         "fi; "
                         "setsid /home/test/start_all.sh &'");
                     RCLCPP_INFO(this->get_logger(), "Start command system() returned %d", rc);
+                    markAppControlSessionActive("start command");
                     break;
                 }
                 case 0x02:
@@ -370,6 +412,7 @@ private:
         }
 
         if (instruction_type >= 0x04 && instruction_type <= 0x09) {
+            markAppControlSessionActive("motion command");
             sensor_msgs::msg::Joy joy_msg;
             joy_msg.axes.resize(3, 0.0F);
             const float direction = 1.0F;
@@ -388,6 +431,7 @@ private:
         }
 
         if (instruction_type == 0x0A || instruction_type == 0x0B) {
+            markAppControlSessionActive("posture command");
             sensor_msgs::msg::Joy joy_msg;
             joy_msg.axes.resize(3, 0.0F);
             joy_msg.buttons.resize(2, 0);
@@ -416,6 +460,7 @@ private:
 
     void handleRegionPacket(const uint8_t *packet, size_t packet_len)
     {
+        markClientActivity();
         const uint8_t region_count = packet[2];
         const uint8_t instruction_type = packet[3 + static_cast<size_t>(region_count) * 64];
         if (instruction_type == 0x11) {
@@ -427,6 +472,101 @@ private:
                         "Received 0x09 packet with unknown instruction 0x%02X (len=%zu)",
                         instruction_type, packet_len);
         }
+    }
+
+    void markClientActivity()
+    {
+        const auto now = this->now();
+        std::lock_guard<std::mutex> lock(heartbeat_mutex_);
+        last_client_activity_time_ = now;
+    }
+
+    void handleHeartbeatPacket()
+    {
+        const auto now = this->now();
+        std::lock_guard<std::mutex> lock(heartbeat_mutex_);
+        last_client_activity_time_ = now;
+        last_heartbeat_time_ = now;
+        has_heartbeat_ = true;
+        if (heartbeat_timeout_pending_) {
+            heartbeat_timeout_pending_->store(false);
+            heartbeat_timeout_pending_.reset();
+        }
+        RCLCPP_DEBUG(this->get_logger(), "APP heartbeat received.");
+    }
+
+    void markAppControlSessionActive(const std::string &reason)
+    {
+        if (!heartbeat_required_after_control_) {
+            return;
+        }
+        const auto now = this->now();
+        std::lock_guard<std::mutex> lock(heartbeat_mutex_);
+        const bool was_active = app_control_session_active_;
+        app_control_session_active_ = true;
+        last_client_activity_time_ = now;
+        if (!was_active || !has_heartbeat_) {
+            last_heartbeat_time_ = now;
+            has_heartbeat_ = true;
+        }
+        RCLCPP_INFO(this->get_logger(), "APP heartbeat session active: %s", reason.c_str());
+    }
+
+    void markAppControlSessionInactive(const std::string &reason)
+    {
+        std::lock_guard<std::mutex> lock(heartbeat_mutex_);
+        app_control_session_active_ = false;
+        has_heartbeat_ = false;
+        if (heartbeat_timeout_pending_) {
+            heartbeat_timeout_pending_->store(false);
+            heartbeat_timeout_pending_.reset();
+        }
+        RCLCPP_INFO(this->get_logger(), "APP heartbeat session inactive: %s", reason.c_str());
+    }
+
+    void resetHeartbeatForNewClient(const std::string &reason)
+    {
+        const auto now = this->now();
+        const bool start_all_controllable = canAttemptStartAllControl();
+        std::lock_guard<std::mutex> lock(heartbeat_mutex_);
+        last_client_activity_time_ = now;
+        last_heartbeat_time_ = now;
+        has_heartbeat_ = start_all_controllable;
+        app_control_session_active_ = heartbeat_required_after_control_ && start_all_controllable;
+        if (heartbeat_timeout_pending_) {
+            heartbeat_timeout_pending_->store(false);
+            heartbeat_timeout_pending_.reset();
+        }
+        RCLCPP_INFO(this->get_logger(), "APP heartbeat reset for new client: %s", reason.c_str());
+    }
+
+    void checkHeartbeatWatchdog()
+    {
+        if (heartbeat_timeout_seconds_ <= 0.0 || !heartbeat_required_after_control_) {
+            return;
+        }
+
+        double age = 0.0;
+        {
+            std::lock_guard<std::mutex> lock(heartbeat_mutex_);
+            if (!app_control_session_active_ || !has_heartbeat_) {
+                return;
+            }
+            age = (this->now() - last_heartbeat_time_).seconds();
+            if (age <= heartbeat_timeout_seconds_) {
+                return;
+            }
+            if (heartbeat_timeout_pending_) {
+                return;
+            }
+            heartbeat_timeout_pending_ = std::make_shared<std::atomic<bool>>(true);
+        }
+
+        RCLCPP_ERROR(
+            this->get_logger(),
+            "APP heartbeat timeout %.2fs > %.2fs; entering disconnect protection.",
+            age, heartbeat_timeout_seconds_);
+        handleHeartbeatTimeoutProtection("APP heartbeat timeout");
     }
 
     struct StartAllTarget {
@@ -686,6 +826,7 @@ private:
     {
         RCLCPP_INFO(this->get_logger(), "Received command: stop (0x03)");
         const int rc = triggerStartAllFailSafeStop("stop command");
+        markAppControlSessionInactive("stop command");
         RCLCPP_INFO(this->get_logger(), "Stop command fail-safe returned %d", rc);
     }
 
@@ -798,6 +939,27 @@ private:
             this->get_logger(),
             "APP client disconnected; will auto-pause after %.1fs if it does not reconnect.",
             client_disconnect_auto_pause_seconds_);
+    }
+
+    void handleHeartbeatTimeoutProtection(const std::string &reason)
+    {
+        {
+            std::lock_guard<std::mutex> client_lock(client_mutex_);
+            if (client_sock_ >= 0) {
+                closeClientSocketLocked();
+            }
+        }
+
+        if (!canAttemptStartAllControl()) {
+            RCLCPP_WARN(
+                this->get_logger(),
+                "%s, but start_all is not controllable; publishing StopMove only.",
+                reason.c_str());
+            publishSafetyStopMove(reason + ": start_all not controllable");
+            return;
+        }
+
+        handlePauseCommand(reason);
     }
 
     bool requestTrigger(
@@ -982,15 +1144,23 @@ private:
 
     bool sendPacket(const uint8_t *data, size_t len)
     {
-        std::lock_guard<std::mutex> lock(client_mutex_);
-        if (client_sock_ < 0) {
-            return false;
+        bool closed_active_client = false;
+        {
+            std::lock_guard<std::mutex> lock(client_mutex_);
+            if (client_sock_ < 0) {
+                return false;
+            }
+            if (!sendAllBytesLocked(client_sock_, data, len)) {
+                closeClientSocketLocked();
+                closed_active_client = true;
+            } else {
+                return true;
+            }
         }
-        if (!sendAllBytesLocked(client_sock_, data, len)) {
-            closeClientSocketLocked();
-            return false;
+        if (closed_active_client && !stop_requested_.load()) {
+            scheduleDisconnectAutoPause();
         }
-        return true;
+        return false;
     }
 
     bool sendPacket(const std::vector<uint8_t> &packet)
@@ -1262,6 +1432,15 @@ private:
     rclcpp::TimerBase::SharedPtr disconnect_auto_pause_timer_;
     std::shared_ptr<std::atomic<bool>> disconnect_auto_pause_pending_;
     double client_disconnect_auto_pause_seconds_ = 8.0;
+    double heartbeat_timeout_seconds_ = 3.5;
+    bool heartbeat_required_after_control_ = true;
+    rclcpp::TimerBase::SharedPtr heartbeat_watchdog_timer_;
+    std::mutex heartbeat_mutex_;
+    rclcpp::Time last_heartbeat_time_;
+    rclcpp::Time last_client_activity_time_;
+    bool has_heartbeat_ = false;
+    bool app_control_session_active_ = false;
+    std::shared_ptr<std::atomic<bool>> heartbeat_timeout_pending_;
 };
 
 int main(int argc, char * argv[])

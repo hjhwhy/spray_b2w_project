@@ -331,7 +331,20 @@ APP ↔ 主控通过 TCP 长连接通信：
 | 0x0A | 趴下（`b2w_teleop_node` 调用 `StandDown()`） |
 | 0x0B | 站立（`b2w_teleop_node` 调用 `StandUp()`） |
 | 0x10 | 恢复（解除暂停） |
-| 0xFF | 急停阻尼（`b2w_teleop_node` 调用 `Damp()`） |
+
+**APP → 机器人（心跳指令，功能码 0xFF，建议 1 Hz / 每 1 秒一次）**：
+
+用于比 TCP socket 断开更可靠地判断 APP 是否在线。机器人端以“最近一次心跳时间”为应用层在线依据；APP 控制/作业会话中若超过 `heartbeat_timeout_seconds`（默认 3.5s）未收到心跳，会进入断联保护（暂停/停止任务并保持机器狗静止），不要触发 `StandDown()` 或 `Damp()`。
+
+| 字段 | 值 |
+|---|---|
+| 包头 | `0xF5` |
+| 功能码 | `0xFF` |
+| 数据段长度 | `0x0001`（低字节在前：`01 00`） |
+| 心跳值 | `0xFF` |
+| CRC低字节 | `1字节` |
+| CRC高字节 | `1字节` |
+| 包尾 | `0x5F` |
 
 控制链路说明：
 
@@ -339,8 +352,9 @@ APP ↔ 主控通过 TCP 长连接通信：
 - `0x02 pause`：`app_node.cpp` 调用 `/emergency_stop`，由 `b2w_nav_node` 暂停状态机。
 - `0x03 stop`：`app_node.cpp` 读取 `/tmp/start_all.pid`，对 `start_all.sh` 进程组发送 `SIGTERM`。
 - `0x04` ~ `0x09`：`app_node.cpp` 发布 `/joy.axes` 方向量，`b2w_teleop_node` 按 YAML 速度缩放后调用 `SportClient::Move()`。
-- `0x0A`、`0x0B`、`0xFF`：`app_node.cpp` 发布 `/joy.buttons`，`b2w_teleop_node` 分别调用 `StandDown()`、`StandUp()`、`Damp()`。
+- `0x0A`、`0x0B`：`app_node.cpp` 发布 `/joy.buttons`，`b2w_teleop_node` 分别调用 `StandDown()`、`StandUp()`。
 - `0x10 restart/resume`：`app_node.cpp` 调用 `/erase_emergency_stop`，由 `b2w_nav_node` 解除暂停。
+- `0xFF heartbeat`：APP/遥控器每 1 秒下发一次心跳，用于应用层断联判断；不是姿态/急停阻尼指令。默认 `heartbeat_timeout_seconds=3.5`，`heartbeat_required_after_control=true`。
 
 ## 坐标系说明
 
