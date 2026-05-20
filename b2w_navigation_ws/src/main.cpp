@@ -94,7 +94,9 @@ public:
         this->declare_parameter("min_useful_vyaw", 0.4);
         this->declare_parameter("max_vyaw", 0.6);
         this->declare_parameter("waypoint_file_path", std::string("gnss_waypoints.txt"));
-        
+        this->declare_parameter<bool>("arm_reset_on_pause", true);
+        this->declare_parameter<double>("arm_safety_reset_timeout_seconds", 15.0);
+
         this->get_parameter("heading_alignment_threshold", heading_alignment_threshold_);
         this->get_parameter("moving_to_target_forward_speed", moving_to_target_forward_speed_);
         this->get_parameter("z1_arm_end_height", z1_arm_end_height_);
@@ -112,6 +114,9 @@ public:
         this->get_parameter("min_useful_vyaw", min_useful_vyaw_);
         this->get_parameter("max_vyaw", max_vyaw_);
         this->get_parameter("waypoint_file_path", waypoint_file_path_);
+        this->get_parameter("arm_reset_on_pause", arm_reset_on_pause_);
+        this->get_parameter("arm_safety_reset_timeout_seconds", arm_safety_reset_timeout_seconds_);
+        arm_safety_reset_request_time_ = this->now();
 
         if (!LoadWaypointsFromFile(waypoint_file_path_)) {
             RCLCPP_FATAL(this->get_logger(), "Failed to load waypoints. Check waypoint_file_path: %s", waypoint_file_path_.c_str());
@@ -136,6 +141,8 @@ public:
         RCLCPP_INFO(this->get_logger(), "min_useful_vyaw: %.3f", min_useful_vyaw_);
         RCLCPP_INFO(this->get_logger(), "max_vyaw: %.3f", max_vyaw_);
         RCLCPP_INFO(this->get_logger(), "waypoint_file_path: %s", waypoint_file_path_.c_str());
+        RCLCPP_INFO(this->get_logger(), "arm_reset_on_pause: %s", arm_reset_on_pause_ ? "true" : "false");
+        RCLCPP_INFO(this->get_logger(), "arm_safety_reset_timeout_seconds: %.2f", arm_safety_reset_timeout_seconds_);
 
         current_vx_ = 0.0;
         current_vy_ = 0.0;
@@ -379,28 +386,154 @@ private:
         }
     }
 
+    bool IsArmRelatedState() const
+    {
+        switch (state_) {
+            case EXECUTING_ARM_TASK:
+            case RETRYING_ARM_AFTER_FORWARD:
+            case RETRYING_ARM_AFTER_BACKUP:
+            case TRIGGERING_RELAY:
+            case RESETTING_ARM:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    void RequestArmSafetyReset(const std::string &reason)
+    {
+        if (!arm_reset_on_pause_) {
+            return;
+        }
+        if (!IsArmRelatedState()) {
+            return;
+        }
+        if (arm_safety_reset_requested_) {
+            return;
+        }
+
+        // 如果导航主流程已经在 RESETTING_ARM 中并发出过 /z1_reset_arm,
+        // 复用既有 future, 避免对 Z1 控制器重复入队同一个 backToStart.
+        if (state_ == RESETTING_ARM && arm_reset_task_requested_ && arm_reset_task_future_.valid()) {
+            arm_safety_reset_future_ = arm_reset_task_future_;
+            arm_safety_reset_requested_ = true;
+            arm_safety_reset_request_time_ = this->now();
+            RCLCPP_WARN(this->get_logger(),
+                "Reusing existing /z1_reset_arm future for safety reset (reason=%s).",
+                reason.c_str());
+            return;
+        }
+
+        if (!z1_reset_arm_client_->service_is_ready()) {
+            RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+                "/z1_reset_arm service not ready; safety reset deferred (reason=%s).",
+                reason.c_str());
+            return;
+        }
+
+        auto request = std::make_shared<z1_arm_controller_cpp::srv::MoveArm::Request>();
+        auto safety_future = z1_reset_arm_client_->async_send_request(request);
+        arm_safety_reset_future_ = safety_future.future.share();
+        arm_safety_reset_requested_ = true;
+        arm_safety_reset_request_time_ = this->now();
+        RCLCPP_WARN(this->get_logger(),
+            "Arm safety reset dispatched at state=%s (reason=%s).",
+            StateToString(state_), reason.c_str());
+    }
+
+    void PollArmSafetyReset()
+    {
+        if (!arm_safety_reset_requested_) {
+            return;
+        }
+        if (!arm_safety_reset_future_.valid()) {
+            arm_safety_reset_requested_ = false;
+            return;
+        }
+
+        if (arm_safety_reset_future_.wait_for(std::chrono::milliseconds(0)) == std::future_status::ready) {
+            bool ok = false;
+            std::string msg;
+            try {
+                auto result = arm_safety_reset_future_.get();
+                ok = result->success;
+                msg = result->message;
+            } catch (const std::exception &e) {
+                msg = std::string("future exception: ") + e.what();
+            }
+            if (ok) {
+                RCLCPP_INFO(this->get_logger(),
+                    "Arm safety reset succeeded: %s. Forcing state to GET_NEXT_WAYPOINT.",
+                    msg.c_str());
+                state_ = GET_NEXT_WAYPOINT;
+            } else {
+                RCLCPP_ERROR(this->get_logger(),
+                    "Arm safety reset failed: %s. Forcing state to WAITING_FOR_WAYPOINT.",
+                    msg.c_str());
+                state_ = WAITING_FOR_WAYPOINT;
+            }
+            arm_task_requested_ = false;
+            arm_reset_task_requested_ = false;
+            ch1_trigger_task_requested_ = false;
+            arm_task_future_ = {};
+            arm_reset_task_future_ = {};
+            ch1_trigger_task_future_ = {};
+            arm_safety_reset_requested_ = false;
+            arm_safety_reset_future_ = {};
+            pause_stop_latched_ = false;
+            return;
+        }
+
+        const double elapsed = (this->now() - arm_safety_reset_request_time_).seconds();
+        if (elapsed > arm_safety_reset_timeout_seconds_) {
+            RCLCPP_ERROR(this->get_logger(),
+                "Arm safety reset timed out after %.1fs (limit=%.1fs). Forcing state to WAITING_FOR_WAYPOINT.",
+                elapsed, arm_safety_reset_timeout_seconds_);
+            state_ = WAITING_FOR_WAYPOINT;
+            arm_task_requested_ = false;
+            arm_reset_task_requested_ = false;
+            ch1_trigger_task_requested_ = false;
+            arm_task_future_ = {};
+            arm_reset_task_future_ = {};
+            ch1_trigger_task_future_ = {};
+            arm_safety_reset_requested_ = false;
+            arm_safety_reset_future_ = {};
+            pause_stop_latched_ = false;
+        }
+    }
+
     void HandleEmergencyStop(
         const std::shared_ptr<std_srvs::srv::Trigger::Request> /*request*/,
         std::shared_ptr<std_srvs::srv::Trigger::Response> response)
     {
-        if (paused_) {
-            response->success = true;
-            response->message = std::string("Task already paused at state: ") + StateToString(state_);
-            return;
+        const bool was_paused = paused_;
+
+        if (!was_paused) {
+            paused_ = true;
+            pause_stop_latched_ = false;
+            moving_ = false;
+            try {
+                sport_client_.Move(0, 0, 0);
+            } catch (...) {
+                RCLCPP_WARN(this->get_logger(), "Exception while stopping robot during emergency stop.");
+            }
         }
 
-        paused_ = true;
-        pause_stop_latched_ = false;
-        moving_ = false;
-        try {
-            sport_client_.Move(0, 0, 0);
-        } catch (...) {
-            RCLCPP_WARN(this->get_logger(), "Exception while stopping robot during emergency stop.");
+        // 不论是第一次 pause 还是重复 pause, 都尝试调度机械臂安全复位.
+        // RequestArmSafetyReset 内部会做去重和状态判断, 多次调用是安全的.
+        if (was_paused) {
+            RequestArmSafetyReset("emergency stop re-issued while already paused");
+        } else {
+            RequestArmSafetyReset(std::string("emergency stop at state ") + StateToString(state_));
         }
 
         response->success = true;
-        response->message = std::string("Task paused at state: ") + StateToString(state_);
-        RCLCPP_WARN(this->get_logger(), "%s", response->message.c_str());
+        if (was_paused) {
+            response->message = std::string("Task already paused at state: ") + StateToString(state_);
+        } else {
+            response->message = std::string("Task paused at state: ") + StateToString(state_);
+            RCLCPP_WARN(this->get_logger(), "%s", response->message.c_str());
+        }
     }
 
     void HandleEraseEmergencyStop(
@@ -423,6 +556,30 @@ private:
     void ControlLoop()
     {
         PublishOdom();
+        PollArmSafetyReset();
+
+        // 已 paused 时, 如果当前还处在机械臂相关状态而未发出安全复位,
+        // 在每个 tick 重试一次 (服务可能稍后才就绪).
+        if (paused_ && arm_reset_on_pause_ && IsArmRelatedState() && !arm_safety_reset_requested_) {
+            RequestArmSafetyReset("ControlLoop retry while paused");
+        }
+
+        if (arm_safety_reset_requested_) {
+            if (!pause_stop_latched_) {
+                try {
+                    sport_client_.Move(0, 0, 0);
+                } catch (...) {
+                    RCLCPP_WARN(this->get_logger(), "Exception while holding robot stop during arm safety reset.");
+                }
+                moving_ = false;
+                pause_stop_latched_ = true;
+            }
+            RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+                "Arm safety reset in progress. Holding chassis stopped at state: %s",
+                StateToString(state_));
+            return;
+        }
+
         if (paused_) {
             if (!pause_stop_latched_) {
                 try {
@@ -957,6 +1114,10 @@ private:
     bool arm_task_requested_ = false;
     rclcpp::Client<z1_arm_controller_cpp::srv::MoveArm>::SharedFuture arm_reset_task_future_;
     bool arm_reset_task_requested_ = false;
+    // 安全复位 (由 pause/断联 pause 主动触发, 独立于正常的 RESETTING_ARM 状态机)
+    bool arm_safety_reset_requested_ = false;
+    rclcpp::Client<z1_arm_controller_cpp::srv::MoveArm>::SharedFuture arm_safety_reset_future_;
+    rclcpp::Time arm_safety_reset_request_time_;
 
     rclcpp::Client<std_srvs::srv::Trigger>::SharedFuture ch1_trigger_task_future_;
     bool ch1_trigger_task_requested_ = false;
@@ -992,6 +1153,8 @@ private:
     int rtk_hz_;
     double distance_to_slow_down_;
     double min_useful_vyaw_, max_vyaw_;
+    bool arm_reset_on_pause_ = true;
+    double arm_safety_reset_timeout_seconds_ = 15.0;
 
     // 存储上一次回调的时间，用于计算时间间隔
     rclcpp::Time last_time_;

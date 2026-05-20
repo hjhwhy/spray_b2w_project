@@ -37,6 +37,7 @@
 #include <string>
 #include <unordered_map>
 #include <std_srvs/srv/trigger.hpp>
+#include "z1_arm_controller_cpp/srv/move_arm.hpp"
 
 struct Point {
     std::string id;
@@ -54,11 +55,20 @@ public:
         this->declare_parameter<double>("client_disconnect_auto_pause_seconds", 8.0);
         this->declare_parameter<double>("heartbeat_timeout_seconds", 3.5);
         this->declare_parameter<bool>("heartbeat_required_after_control", true);
+        this->declare_parameter<double>("arm_reset_timeout_seconds", 15.0);
         int port = this->get_parameter("listen_port").as_int();
         client_disconnect_auto_pause_seconds_ =
             this->get_parameter("client_disconnect_auto_pause_seconds").as_double();
         heartbeat_timeout_seconds_ = this->get_parameter("heartbeat_timeout_seconds").as_double();
         heartbeat_required_after_control_ = this->get_parameter("heartbeat_required_after_control").as_bool();
+        arm_reset_timeout_seconds_ = this->get_parameter("arm_reset_timeout_seconds").as_double();
+        if (arm_reset_timeout_seconds_ < 1.0) {
+            RCLCPP_WARN(
+                this->get_logger(),
+                "arm_reset_timeout_seconds=%.3f is too small; clamping to 1.0s.",
+                arm_reset_timeout_seconds_);
+            arm_reset_timeout_seconds_ = 1.0;
+        }
         if (client_disconnect_auto_pause_seconds_ > 0.0 && client_disconnect_auto_pause_seconds_ < 3.0) {
             RCLCPP_WARN(
                 this->get_logger(),
@@ -105,6 +115,7 @@ public:
         });
         emergency_stop_client_ = this->create_client<std_srvs::srv::Trigger>("/emergency_stop");
         erase_emergency_stop_client_ = this->create_client<std_srvs::srv::Trigger>("/erase_emergency_stop");
+        z1_reset_arm_client_ = this->create_client<z1_arm_controller_cpp::srv::MoveArm>("/z1_reset_arm");
         heartbeat_watchdog_timer_ = this->create_wall_timer(
             std::chrono::milliseconds(500),
             std::bind(&RemoteControlNode::checkHeartbeatWatchdog, this));
@@ -791,9 +802,91 @@ private:
         RCLCPP_ERROR(this->get_logger(), "Published fail-safe StopMove Joy command: %s", reason.c_str());
     }
 
+    void requestArmResetBestEffort(const std::string &reason)
+    {
+        if (!z1_reset_arm_client_) {
+            RCLCPP_WARN(
+                this->get_logger(),
+                "best-effort arm reset skipped: /z1_reset_arm client not initialized (reason=%s).",
+                reason.c_str());
+            return;
+        }
+        if (!z1_reset_arm_client_->wait_for_service(std::chrono::milliseconds(500))) {
+            RCLCPP_WARN(
+                this->get_logger(),
+                "best-effort arm reset skipped: /z1_reset_arm not available within 500ms (reason=%s).",
+                reason.c_str());
+            return;
+        }
+
+        auto request = std::make_shared<z1_arm_controller_cpp::srv::MoveArm::Request>();
+        auto response_done = std::make_shared<std::atomic<bool>>(false);
+        const std::string reason_copy = reason;
+
+        auto timeout_id = std::make_shared<uint64_t>(0);
+        auto timeout_timer = this->create_wall_timer(
+            std::chrono::duration<double>(arm_reset_timeout_seconds_),
+            [this, reason_copy, response_done, timeout_id]() {
+                if (!response_done->exchange(true)) {
+                    RCLCPP_ERROR(
+                        this->get_logger(),
+                        "best-effort arm reset timed out after %.1fs (reason=%s).",
+                        arm_reset_timeout_seconds_,
+                        reason_copy.c_str());
+                }
+                cancelSafetyTimer(*timeout_id);
+            });
+        const uint64_t arm_reset_timeout_handle = registerSafetyTimer(timeout_timer);
+        *timeout_id = arm_reset_timeout_handle;
+
+        z1_reset_arm_client_->async_send_request(
+            request,
+            [this, reason_copy, response_done, arm_reset_timeout_handle](
+                rclcpp::Client<z1_arm_controller_cpp::srv::MoveArm>::SharedFuture future) {
+                if (response_done->exchange(true)) {
+                    RCLCPP_WARN(
+                        this->get_logger(),
+                        "best-effort arm reset response arrived after timeout (reason=%s).",
+                        reason_copy.c_str());
+                    cancelSafetyTimer(arm_reset_timeout_handle);
+                    return;
+                }
+                cancelSafetyTimer(arm_reset_timeout_handle);
+                try {
+                    const auto &response = future.get();
+                    if (response->success) {
+                        RCLCPP_INFO(
+                            this->get_logger(),
+                            "best-effort arm reset succeeded: %s (reason=%s).",
+                            response->message.c_str(),
+                            reason_copy.c_str());
+                    } else {
+                        RCLCPP_ERROR(
+                            this->get_logger(),
+                            "best-effort arm reset failed: %s (reason=%s).",
+                            response->message.c_str(),
+                            reason_copy.c_str());
+                    }
+                } catch (const std::exception &e) {
+                    RCLCPP_ERROR(
+                        this->get_logger(),
+                        "best-effort arm reset exception: %s (reason=%s).",
+                        e.what(),
+                        reason_copy.c_str());
+                }
+            });
+
+        RCLCPP_WARN(
+            this->get_logger(),
+            "best-effort arm reset dispatched (reason=%s, timeout=%.1fs).",
+            reason.c_str(),
+            arm_reset_timeout_seconds_);
+    }
+
     int triggerStartAllFailSafeStop(const std::string &reason)
     {
         publishSafetyStopMove(reason);
+        requestArmResetBestEffort(reason);
         RCLCPP_ERROR(
             this->get_logger(),
             "Triggering start_all fail-safe stop because %s. This intentionally stops the autonomous task instead of letting the robot continue uncontrolled.",
@@ -1432,6 +1525,8 @@ private:
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr unacquired_points_sub_;
     rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr emergency_stop_client_;
     rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr erase_emergency_stop_client_;
+    rclcpp::Client<z1_arm_controller_cpp::srv::MoveArm>::SharedPtr z1_reset_arm_client_;
+    double arm_reset_timeout_seconds_ = 15.0;
 
     std::vector<Point> all_points_; // 存储所有原始点
     // TCP

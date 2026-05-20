@@ -199,7 +199,8 @@ def test_heartbeat_function_code_is_not_damp_or_joy_button():
     text = source()
     teleop = teleop_source()
     assert "func_code == 0xFF" in text
-    assert "RX HEARTBEAT" in text
+    assert "APP heartbeat state changed" in text
+    assert "RX HEARTBEAT" not in text
     assert "handleHeartbeatPacket" in text
     assert "instruction_type == 0xFF" not in text
     assert "joy_msg.buttons[2] = 1" not in text
@@ -258,3 +259,32 @@ def test_send_failure_schedules_disconnect_auto_pause():
     assert "closeClientSocketLocked" in body
     assert "scheduleDisconnectAutoPause" in body
     assert body.find("closeClientSocketLocked") < body.find("scheduleDisconnectAutoPause")
+
+def test_fail_safe_stop_requests_best_effort_arm_reset_before_killing_start_all():
+    text = source()
+    assert "z1_arm_controller_cpp/srv/move_arm.hpp" in text
+    assert "z1_reset_arm_client_" in text
+    assert "requestArmResetBestEffort" in text
+
+    fail_safe_match = re.search(
+        r"int triggerStartAllFailSafeStop[\s\S]+?\n    void handlePauseCommand",
+        text,
+    )
+    assert fail_safe_match is not None
+    fail_safe = fail_safe_match.group(0)
+    assert "publishSafetyStopMove(reason)" in fail_safe
+    assert "requestArmResetBestEffort(reason)" in fail_safe
+    assert fail_safe.find("publishSafetyStopMove(reason)") < fail_safe.find("requestArmResetBestEffort(reason)")
+    assert fail_safe.find("requestArmResetBestEffort(reason)") < fail_safe.find("kill(-target.pgid, SIGTERM)")
+
+    reset_match = re.search(
+        r"void requestArmResetBestEffort[\s\S]+?\n    int triggerStartAllFailSafeStop",
+        text,
+    )
+    assert reset_match is not None
+    reset_body = reset_match.group(0)
+    assert "wait_for_service" in reset_body
+    assert "async_send_request" in reset_body
+    assert "arm_reset_timeout_seconds_" in reset_body
+    assert "requestArmResetBestEffort" not in reset_body.split("void requestArmResetBestEffort", 1)[1]
+
