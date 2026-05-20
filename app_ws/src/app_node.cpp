@@ -320,7 +320,6 @@ private:
                 return true;
             }
 
-            logPacket("RX HEARTBEAT", buffer.data(), total_len, this->get_logger());
             handleHeartbeatPacket();
             buffer.erase(buffer.begin(), buffer.begin() + total_len);
             return true;
@@ -484,15 +483,37 @@ private:
     void handleHeartbeatPacket()
     {
         const auto now = this->now();
-        std::lock_guard<std::mutex> lock(heartbeat_mutex_);
-        last_client_activity_time_ = now;
-        last_heartbeat_time_ = now;
-        has_heartbeat_ = true;
-        if (heartbeat_timeout_pending_) {
-            heartbeat_timeout_pending_->store(false);
-            heartbeat_timeout_pending_.reset();
+        bool log_state_change = false;
+        const char *state_change_reason = nullptr;
+        bool active_after_update = false;
+        {
+            std::lock_guard<std::mutex> lock(heartbeat_mutex_);
+            const bool had_heartbeat = has_heartbeat_;
+            const bool had_timeout_pending = heartbeat_timeout_pending_ && heartbeat_timeout_pending_->load();
+            last_client_activity_time_ = now;
+            last_heartbeat_time_ = now;
+            has_heartbeat_ = true;
+            active_after_update = app_control_session_active_;
+            if (heartbeat_timeout_pending_) {
+                heartbeat_timeout_pending_->store(false);
+                heartbeat_timeout_pending_.reset();
+            }
+            if (!had_heartbeat) {
+                log_state_change = true;
+                state_change_reason = "online";
+            } else if (had_timeout_pending) {
+                log_state_change = true;
+                state_change_reason = "recovered after timeout";
+            }
         }
-        RCLCPP_DEBUG(this->get_logger(), "APP heartbeat received.");
+
+        if (log_state_change) {
+            RCLCPP_INFO(
+                this->get_logger(),
+                "APP heartbeat state changed: %s (control_session_active=%s)",
+                state_change_reason,
+                active_after_update ? "true" : "false");
+        }
     }
 
     void markAppControlSessionActive(const std::string &reason)
