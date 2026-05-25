@@ -4,6 +4,8 @@
 > 分支：ygs
 > 类型：缺陷修复 + 安全加固（无破坏性接口变更）
 
+> 完成状态：✅ 已完成代码实现与源码级回归验证。当前仓库中 `b2w_navigation_ws/src/main.cpp` 已包含 pause/断联 pause 时的机械臂安全复位子流程，`app_ws/src/app_node.cpp` 已包含 stop/fail-safe 路径的 best-effort `/z1_reset_arm` 请求；`tests/test_app_node_failsafe.py` 与 `tests/test_b2w_navigation_arm_safety_reset.py` 已通过。真实 ROS 2 Humble 目标机编译与现场动作验收仍以 §8.3 / §8.4 为准。
+
 ---
 
 ## 1. 问题陈述
@@ -27,14 +29,14 @@
 
 ## 4. 实现方案
 
-### 4.1 入口分工（双入口补复位）
+### 4.1 入口分工（双入口补复位） ✅
 
 | 入口 | 谁负责调 `/z1_reset_arm` | 实现位置 |
 |---|---|---|
 | `/emergency_stop` (0x02 pause / 断联 pause / 心跳 pause) | `b2w_nav_node` | `b2w_navigation_ws/src/main.cpp` |
 | fail-safe stop（0x03 stop / emergency stop timeout / bad response / exception / pause fallback） | `robot_tcp_node` (常驻 APP 节点) | `app_ws/src/app_node.cpp` |
 
-### 4.2 `b2w_nav_node` 安全复位子流程
+### 4.2 `b2w_nav_node` 安全复位子流程 ✅
 
 新增三个 private 方法（顺序固定，紧邻 `HandleEmergencyStop` 之前，被静态测试断言锁定）：
 
@@ -94,7 +96,7 @@ if (paused_) { ... return; }                             // 原有 pause 冻结
 
 > **不变量**：`if (paused_) { ... return; }` 块体内**不包含** `state_ =`。状态强制全部发生在 `PollArmSafetyReset()` 内（在 paused 块之外）。这条不变量被 `tests/test_b2w_navigation_arm_safety_reset.py::test_control_loop_polls_arm_safety_reset_before_paused_return` 锁定。
 
-### 4.3 `robot_tcp_node` best-effort 复位
+### 4.3 `robot_tcp_node` best-effort 复位 ✅
 
 新增方法 `requestArmResetBestEffort(reason)`，放在 `triggerStartAllFailSafeStop` 之前（顺序被静态测试锁定）：
 
@@ -117,7 +119,7 @@ clearStartAllRunFiles
 
 这条顺序保证：底盘最优先停 → 复位异步发出（不等响应）→ 才去 kill 主任务进程组。
 
-### 4.4 为什么 PollArmSafetyReset 完成时要"强制状态机回到 GET_NEXT_WAYPOINT/WAITING_FOR_WAYPOINT"
+### 4.4 为什么 PollArmSafetyReset 完成时要"强制状态机回到 GET_NEXT_WAYPOINT/WAITING_FOR_WAYPOINT" ✅
 
 不强制的情况下会出现以下危险时序：
 
@@ -130,24 +132,24 @@ clearStartAllRunFiles
 
 强制状态机回到 `GET_NEXT_WAYPOINT` / `WAITING_FOR_WAYPOINT` 并清零所有 in-flight 标记后，resume 起步即为安全态，跳过当前点的喷涂周期。
 
-## 5. 修改文件清单
+## 5. 修改文件清单 ✅
 
 | 文件 | 类型 | 改动摘要 |
 |---|---|---|
-| `b2w_navigation_ws/src/main.cpp` | MODIFY | +参数 `arm_reset_on_pause` / `arm_safety_reset_timeout_seconds`；+成员 3 个；+方法 `IsArmRelatedState` / `RequestArmSafetyReset` / `PollArmSafetyReset`；改 `HandleEmergencyStop` / `ControlLoop` |
-| `app_ws/src/app_node.cpp` | MODIFY | +include `z1_arm_controller_cpp/srv/move_arm.hpp`；+参数 `arm_reset_timeout_seconds`；+成员 `z1_reset_arm_client_` / `arm_reset_timeout_seconds_`；+方法 `requestArmResetBestEffort`；改 `triggerStartAllFailSafeStop` |
-| `app_ws/CMakeLists.txt` | MODIFY | +`find_package(z1_arm_controller_cpp REQUIRED)` 与 `ament_target_dependencies` 中追加 |
-| `app_ws/package.xml` | MODIFY | +`<depend>std_srvs</depend>` 与 `<depend>z1_arm_controller_cpp</depend>` |
-| `tests/test_app_node_failsafe.py` | MODIFY | +`test_fail_safe_stop_requests_best_effort_arm_reset_before_killing_start_all` |
-| `tests/test_b2w_navigation_arm_safety_reset.py` | CREATE | 3 个测试覆盖状态枚举、ControlLoop 顺序、async/去重/超时 |
+| `b2w_navigation_ws/src/main.cpp` | MODIFY ✅ | +参数 `arm_reset_on_pause` / `arm_safety_reset_timeout_seconds`；+成员 3 个；+方法 `IsArmRelatedState` / `RequestArmSafetyReset` / `PollArmSafetyReset`；改 `HandleEmergencyStop` / `ControlLoop` |
+| `app_ws/src/app_node.cpp` | MODIFY ✅ | +include `z1_arm_controller_cpp/srv/move_arm.hpp`；+参数 `arm_reset_timeout_seconds`；+成员 `z1_reset_arm_client_` / `arm_reset_timeout_seconds_`；+方法 `requestArmResetBestEffort`；改 `triggerStartAllFailSafeStop` |
+| `app_ws/CMakeLists.txt` | MODIFY ✅ | +`find_package(z1_arm_controller_cpp REQUIRED)` 与 `ament_target_dependencies` 中追加 |
+| `app_ws/package.xml` | MODIFY ✅ | +`<depend>std_srvs</depend>` 与 `<depend>z1_arm_controller_cpp</depend>` |
+| `tests/test_app_node_failsafe.py` | MODIFY ✅ | +`test_fail_safe_stop_requests_best_effort_arm_reset_before_killing_start_all` |
+| `tests/test_b2w_navigation_arm_safety_reset.py` | CREATE ✅ | 3 个测试覆盖状态枚举、ControlLoop 顺序、async/去重/超时 |
 
-## 6. 新增可调参数
+## 6. 新增可调参数 ✅
 
 | 节点 | 参数 | 默认 | 说明 |
 |---|---|---|---|
-| `b2w_nav_node` | `arm_reset_on_pause` | `true` | 设为 false 可关闭 pause 时的机械臂安全复位（调试用） |
-| `b2w_nav_node` | `arm_safety_reset_timeout_seconds` | `15.0` | 超时后强制状态机回 `WAITING_FOR_WAYPOINT` |
-| `robot_tcp_node` | `arm_reset_timeout_seconds` | `15.0` | <1.0 会被 clamp 到 1.0 |
+| `b2w_nav_node` | `arm_reset_on_pause` | `true` | 设为 false 可关闭 pause 时的机械臂安全复位（调试用） ✅ |
+| `b2w_nav_node` | `arm_safety_reset_timeout_seconds` | `15.0` | 超时后强制状态机回 `WAITING_FOR_WAYPOINT` ✅ |
+| `robot_tcp_node` | `arm_reset_timeout_seconds` | `15.0` | <1.0 会被 clamp 到 1.0 ✅ |
 
 可在 `b2w_navigation_ws/config/b2w_controller_params.yaml` 中覆盖前两项；后者目前无对应 YAML，可通过 launch 参数注入或在 `tcp_base_ctl.sh` 启动行中追加。
 
@@ -165,7 +167,7 @@ clearStartAllRunFiles
 
 ## 8. 测试矩阵
 
-### 8.1 静态回归（已通过）
+### 8.1 静态回归（已通过） ✅
 
 ```bash
 python3 -m pytest tests/test_app_node_failsafe.py tests/test_b2w_navigation_arm_safety_reset.py -v
@@ -178,7 +180,7 @@ python3 -m pytest tests/test_app_node_failsafe.py tests/test_b2w_navigation_arm_
 | `tests/test_b2w_navigation_arm_safety_reset.py` | 3 | `IsArmRelatedState` 含 EXECUTING_ARM_TASK / TRIGGERING_RELAY / RESETTING_ARM；`HandleEmergencyStop` 调用 `RequestArmSafetyReset`；`ControlLoop` 中 `PollArmSafetyReset()` 在 `if (paused_)` 之前；`if (paused_)` 块体内不含 `state_ =`；`RequestArmSafetyReset` 含 `async_send_request` / `z1_reset_arm_client_`；`PollArmSafetyReset` 含 `wait_for(std::chrono::milliseconds(0))` / `arm_safety_reset_timeout_seconds_` / 清零标记 |
 | `tests/test_app_node_failsafe.py`（新增 1，原有 15） | 16 | include `move_arm.hpp`、有 `z1_reset_arm_client_` 与 `requestArmResetBestEffort`；`triggerStartAllFailSafeStop` 中调用顺序 `publishSafetyStopMove → requestArmResetBestEffort → kill SIGTERM`；`requestArmResetBestEffort` 体内含 `wait_for_service` / `async_send_request` / `arm_reset_timeout_seconds_` 且无递归调用 |
 
-### 8.2 大括号/小括号平衡（已通过）
+### 8.2 大括号/小括号平衡（已通过） ✅
 
 ```text
 b2w main.cpp braces: {=154 }=154 parens: (=711 )=711

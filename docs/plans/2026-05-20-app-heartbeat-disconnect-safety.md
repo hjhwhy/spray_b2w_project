@@ -8,6 +8,8 @@
 
 **Tech Stack:** C++17, ROS 2 Humble `rclcpp`, TCP socket, `sensor_msgs/msg/Joy`, `std_srvs/srv/Trigger`, pytest 源码级回归测试。
 
+**Completion Status:** ✅ 已完成代码实现与源码级回归验证。当前仓库中 `app_ws/src/app_node.cpp` 已包含 `0xFF` 心跳解析、心跳 watchdog、APP 控制会话状态、send 失败断联保护、StopMove/Pause fail-safe 路径；`tests/test_app_node_failsafe.py` 中相关静态回归测试已通过。目标机现场验收仍以 §6 手工/现场验收为准。
+
 ---
 
 ## 0. 安全不变量
@@ -377,7 +379,7 @@ bool sendPacket(const uint8_t *data, size_t len)
 
 ## 5. TDD 任务拆分
 
-### Task 1: 添加心跳协议源码级回归测试
+### Task 1: 添加心跳协议源码级回归测试 ✅
 
 **Objective:** 先用测试锁定 `0xFF` 是 heartbeat，不是 Damp/姿态命令。
 
@@ -412,7 +414,7 @@ Expected: FAIL，因为还未实现 `func_code == 0xFF` heartbeat 分支。
 
 ---
 
-### Task 2: 实现心跳帧解析
+### Task 2: 实现心跳帧解析 ✅
 
 **Objective:** `parseNextPacket()` 能识别 top-level `func_code == 0xFF` 心跳帧，并只更新心跳状态。
 
@@ -437,7 +439,7 @@ Expected: PASS。
 
 ---
 
-### Task 3: 添加心跳状态和 watchdog 参数测试
+### Task 3: 添加心跳状态和 watchdog 参数测试 ✅
 
 **Objective:** 确认代码有心跳超时参数、会话状态、watchdog timer。
 
@@ -468,7 +470,7 @@ Expected: FAIL。
 
 ---
 
-### Task 4: 实现心跳 watchdog
+### Task 4: 实现心跳 watchdog ✅
 
 **Objective:** APP 作业会话中，超过心跳超时时间未收到心跳，立即进入断联保护。
 
@@ -501,7 +503,7 @@ Expected: PASS。
 
 ---
 
-### Task 5: start/stop 与心跳会话状态联动
+### Task 5: start/stop 与心跳会话状态联动 ✅
 
 **Objective:** APP start 后进入心跳监管；stop/fail-safe 后退出监管，避免非作业场景误判。
 
@@ -547,7 +549,7 @@ Expected: PASS。
 
 ---
 
-### Task 6: 心跳超时保护必须走 StopMove/Pause，不走 StandDown/Damp
+### Task 6: 心跳超时保护必须走 StopMove/Pause，不走 StandDown/Damp ✅
 
 **Objective:** 确保心跳 timeout 和现有 fail-safe 一样安全。
 
@@ -584,7 +586,7 @@ Expected: PASS。
 
 ---
 
-### Task 7: send 失败进入 TCP 断联保护
+### Task 7: send 失败进入 TCP 断联保护 ✅
 
 **Objective:** 修复现有潜在问题：向 APP 发送失败时只关闭 socket，不调度 auto-pause。
 
@@ -620,7 +622,7 @@ Expected: PASS。
 
 ---
 
-### Task 8: 集成测试和源码安全扫描
+### Task 8: 集成测试和源码安全扫描 ✅
 
 **Objective:** 所有源码级 fail-safe 测试通过，并且源码中没有误触发 Damp/StandDown 的新增路径。
 
@@ -651,7 +653,7 @@ Expected:
 
 ---
 
-### Task 9: 编译 app_ws
+### Task 9: 编译 app_ws ✅
 
 **Objective:** 确认 C++ 编译通过。
 
@@ -674,7 +676,7 @@ Expected: build finished with exit code 0。
 
 ---
 
-### Task 10: 更新文档
+### Task 10: 更新文档 ✅
 
 **Objective:** 文档与实际代码一致，现场人员知道心跳和断联策略。
 
