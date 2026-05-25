@@ -1,0 +1,561 @@
+[INFO] [1778269889.467913152] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269890.467650592] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269890.924631232] [remote_control_node]: Sent position : (481596.485, 4210295.698, 185.101)
+[INFO] [1778269890.974623168] [remote_control_node]: TX POSITION [len=29] : F5 07 12 0F E5 F0 F1 64 1D 41 63 55 B3 EC 9D 0F 50 41 AC 1C 5A 64 3B 23 67 40 00 00 5F 
+[INFO] [1778269891.175420384] [remote_control_node]: Received /progress: 6
+[INFO] [1778269891.175560832] [remote_control_node]: Sent progress: 6
+[INFO] [1778269891.175605440] [remote_control_node]: TX PROGRESS [len=8] : F5 06 01 00 06 00 00 5F 
+[INFO] [1778269891.175703296] [remote_control_node]: Received /acquired_points
+[INFO] [1778269891.175738112] [remote_control_node]: Cloud step=24 fields=3
+[INFO] [1778269891.175790272] [remote_control_node]: Sent PointCloud: 6 points func=0x02
+[INFO] [1778269891.175844576] [remote_control_node]: Received /unacquired_points
+[INFO] [1778269891.175871744] [remote_control_node]: Cloud step=24 fields=3
+[INFO] [1778269891.175923232] [remote_control_node]: Sent PointCloud: 95 points func=0x03
+[INFO] [1778269891.468250144] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269892.398382912] [remote_control_node]: Sent max temperature: 43
+[INFO] [1778269892.424814208] [remote_control_node]: Sent Path with 158 points
+[INFO] [1778269892.469665984] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269893.295780736] [remote_control_node]: RX COMMAND [len=8] : F5 08 01 00 03 00 00 5F 
+[INFO] [1778269893.295886944] [remote_control_node]: Decoded instruction type: 0x03
+[INFO] [1778269893.295921056] [remote_control_node]: Received command: stop (0x03)
+[ERROR] [1778269893.356350016] [remote_control_node]: Published fail-safe StopMove Joy command: stop command
+[ERROR] [1778269893.356496288] [remote_control_node]: Triggering start_all fail-safe stop because stop command. This intentionally stops the autonomous task instead of letting the robot continue uncontrolled.
+[ERROR] [1778269893.356716576] [remote_control_node]: Fail-safe stopping verified start_all pid=6222 pgid=6222.
+正在关闭所有节点...
+发送 SIGINT 到 PID: 6395
+[ERROR] [1778269893.856878400] [remote_control_node]: start_all pgid=6222 still alive after SIGTERM; escalating to SIGKILL.
+[ERROR] [1778269894.057386816] [remote_control_node]: start_all fail-safe stop completed for pgid=6222.
+[INFO] [1778269894.057508256] [remote_control_node]: APP heartbeat session inactive: stop command
+[INFO] [1778269894.057564128] [remote_control_node]: Stop command fail-safe returned 0
+[INFO] [1778269894.057607488] [remote_control_node]: Received command: stop (0x03)
+[INFO] [1778269894.057672640] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269894.474375776] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269895.471596384] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269896.027581248] [remote_control_node]: RX COMMAND [len=8] : F5 08 01 00 04 00 00 5F 
+[INFO] [1778269896.027690656] [remote_control_node]: Decoded instruction type: 0x04
+[INFO] [1778269896.027723488] [remote_control_node]: APP heartbeat session active: motion command
+[INFO] [1778269896.027822592] [remote_control_node]: Published Joy for instruction 0x04
+[INFO] [1778269896.126943328] [remote_control_node]: RX COMMAND [len=8] : F5 08 01 00 04 00 00 5F 
+[INFO] [1778269896.127037408] [remote_control_node]: Decoded instruction type: 0x04
+[INFO] [1778269896.127067136] [remote_control_node]: APP heartbeat session active: motion command
+[INFO] [1778269896.127164128] [remote_control_node]: Published Joy for instruction 0x04
+[INFO] [1778269896.228697472] [remote_control_node]: RX COMMAND [len=8] : F5 08 01 00 04 00 00 5F 
+[INFO] [1778269896.228789120] [remote_control_node]: Decoded instruction type: 0x04
+[INFO] [1778269896.228822752] [remote_control_node]: APP heartbeat session active: motion command
+[INFO] [1778269896.228927488] [remote_control_node]: Published Joy for instruction 0x04
+[INFO] [1778269896.467959008] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269897.502237952] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269898.470987584] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269899.481138208] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269900.477566656] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269901.500423392] [remote_control_node]: RX COMMAND [len=8] : F5 08 01 00 01 00 00 5F 
+[INFO] [1778269901.500556480] [remote_control_node]: Decoded instruction type: 0x01
+[INFO] [1778269901.504112576] [remote_control_node]: Start command system() returned 0
+[INFO] [1778269901.504223104] [remote_control_node]: APP heartbeat session active: start command
+[INFO] [1778269901.504272096] [remote_control_node]: Received command: start (0x01)
+[INFO] [1778269901.504338944] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269902.480987680] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269903.474125280] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269904.520292256] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269905.488596640] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269906.485701184] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269907.477573920] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+ROS_DOMAIN_ID=unset
+RMW_IMPLEMENTATION=unset
+================ 手动自动作业模式 ================
+当前脚本将直接启动喷涂主流程，即使 APP 故障也可独立运行。
+目标点文件: /home/test/gnss_waypoints.txt
+目标点文件存在。
+检测到 robot_tcp_node 正在运行：当前为 自动作业 + APP远程可控 模式。
+如需恢复 APP 控制，请另外启动: /home/test/tcp_base_ctl.sh
+===============================================
+检测到 tcp_base_ctl.sh 常驻控制链路正在运行，跳过 /dev/shm/fastrtps_* 清理（避免误伤运行中的 DDS）
+[INFO] [1778269908.475834176] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+启动 b2w 主控节点
+[INFO] [1778269909.485545920] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269909.843861472] [remote_control_node]: Received /progress: 0
+[INFO] [1778269909.844029024] [remote_control_node]: Sent progress: 0
+[INFO] [1778269909.844081472] [remote_control_node]: TX PROGRESS [len=8] : F5 06 01 00 00 00 00 5F 
+[INFO] [1778269909.848393792] [remote_control_node]: Sent max temperature: 42
+[INFO] [1778269909.901598016] [remote_control_node]: Sent position : (nan, nan, nan)
+[INFO] [1778269909.901726944] [remote_control_node]: TX POSITION [len=29] : F5 07 00 00 00 00 00 00 F8 7F 00 00 00 00 00 00 F8 7F 00 00 00 00 00 00 F8 7F 00 00 5F 
+start_all.sh PID: 6662
+b2w_navigation.launch PID: 6825
+等待 b2w 主控服务就绪...
+[INFO] [1778269910.475118752] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269910.901893152] [remote_control_node]: Sent Path with 1 points
+[INFO] [1778269911.474875616] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+第 1 次检查检测到 emergency stop 服务，耗时 1s。
+b2w 主控服务已就绪。
+[INFO] [1778269912.475928384] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+b2w 主控服务探测调用成功，耗时 1s。
+probe 摘要：
+requester: making request: std_srvs.srv.Trigger_Request()
+std_srvs.srv.Trigger_Response(success=True, message='Task is not paused. Current state: ALIGNING_YAW')
+start_all 启动总耗时: 11s
+所有节点已启动，pause/restart 服务已验证。
+[INFO] [1778269913.479994976] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269913.849752768] [remote_control_node]: Sent max temperature: 42
+[INFO] [1778269914.477182496] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269914.951471104] [remote_control_node]: Sent position : (481596.027, 4210296.091, 185.059)
+[INFO] [1778269914.951711232] [remote_control_node]: TX POSITION [len=29] : F5 07 5E 6C 55 1B F0 64 1D 41 42 2B CC 05 9E 0F 50 41 8B FD 65 F7 E4 21 67 40 00 00 5F 
+[INFO] [1778269915.477216512] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269915.751632864] [remote_control_node]: Sent Path with 5 points
+[INFO] [1778269916.478296864] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269917.480199776] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269917.851644960] [remote_control_node]: Sent max temperature: 42
+[INFO] [1778269918.490341184] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269919.478438432] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269919.851546720] [remote_control_node]: Sent Path with 39 points
+[INFO] [1778269919.951472640] [remote_control_node]: Sent position : (481596.951, 4210293.576, 185.070)
+[INFO] [1778269920.001768480] [remote_control_node]: TX POSITION [len=29] : F5 07 B3 53 A3 CD F3 64 1D 41 68 54 D9 64 9D 0F 50 41 6E 34 80 B7 40 22 67 40 00 00 5F 
+[INFO] [1778269920.476393216] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269921.477299040] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269921.853541472] [remote_control_node]: Sent max temperature: 42
+[INFO] [1778269922.612010464] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269923.526379648] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269923.951584064] [remote_control_node]: Sent Path with 65 points
+[INFO] [1778269924.536706752] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269925.001492544] [remote_control_node]: Sent position : (481597.585, 4210291.911, 185.079)
+[INFO] [1778269925.051478112] [remote_control_node]: TX POSITION [len=29] : F5 07 1D 26 F7 52 F6 64 1D 41 1C 24 22 FA 9C 0F 50 41 38 67 44 69 6F 22 67 40 00 00 5F 
+[INFO] [1778269925.478424704] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269925.855425440] [remote_control_node]: Sent max temperature: 42
+[INFO] [1778269926.479674560] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269927.502924416] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269928.478234336] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269929.498560416] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269929.857284896] [remote_control_node]: Sent max temperature: 42
+[INFO] [1778269930.051461376] [remote_control_node]: Sent position : (481597.581, 4210291.908, 185.079)
+[INFO] [1778269930.051640352] [remote_control_node]: TX POSITION [len=29] : F5 07 97 4E F2 52 F6 64 1D 41 85 1D 15 FA 9C 0F 50 41 A3 23 B9 FC 87 22 67 40 00 00 5F 
+[INFO] [1778269930.479161728] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269931.479009024] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269932.479121312] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269933.478064224] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269933.752032960] [remote_control_node]: Received /progress: 1
+[INFO] [1778269933.752151584] [remote_control_node]: Sent progress: 1
+[INFO] [1778269933.752190848] [remote_control_node]: TX PROGRESS [len=8] : F5 06 01 00 01 00 00 5F 
+[INFO] [1778269933.752285760] [remote_control_node]: Received /acquired_points
+[INFO] [1778269933.752323488] [remote_control_node]: Cloud step=24 fields=3
+[INFO] [1778269933.752363360] [remote_control_node]: Sent PointCloud: 1 points func=0x02
+[INFO] [1778269933.752416512] [remote_control_node]: Received /unacquired_points
+[INFO] [1778269933.752440224] [remote_control_node]: Cloud step=24 fields=3
+[INFO] [1778269933.752492256] [remote_control_node]: Sent PointCloud: 100 points func=0x03
+[INFO] [1778269933.859125952] [remote_control_node]: Sent max temperature: 43
+[INFO] [1778269934.476357600] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269935.051575808] [remote_control_node]: Sent Path with 66 points
+[INFO] [1778269935.101458400] [remote_control_node]: Sent position : (481597.529, 4210291.914, 185.042)
+[INFO] [1778269935.101608416] [remote_control_node]: TX POSITION [len=29] : F5 07 3B 81 9D 1D F6 64 1D 41 D7 78 7E FA 9C 0F 50 41 6F F0 85 C9 54 21 67 40 00 00 5F 
+[INFO] [1778269935.478709312] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269936.479210912] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269937.608699744] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269937.861053024] [remote_control_node]: Sent max temperature: 43
+[INFO] [1778269938.478677760] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269939.480594848] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269939.851624416] [remote_control_node]: Sent Path with 70 points
+[INFO] [1778269940.101567392] [remote_control_node]: Sent position : (481597.463, 4210291.974, 185.048)
+[INFO] [1778269940.101713536] [remote_control_node]: TX POSITION [len=29] : F5 07 FC 9E 54 DA F5 64 1D 41 4F 11 5D FE 9C 0F 50 41 9D 80 26 C2 86 21 67 40 00 00 5F 
+[INFO] [1778269940.488315648] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269941.484104960] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269941.861106848] [remote_control_node]: Sent max temperature: 43
+[INFO] [1778269942.482974880] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269944.432664768] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269945.151445728] [remote_control_node]: Sent position : (481597.552, 4210292.274, 185.067)
+[INFO] [1778269945.151601536] [remote_control_node]: TX POSITION [len=29] : F5 07 33 74 C3 34 F6 64 1D 41 9D 38 8F 11 9D 0F 50 41 A0 1A 2F DD 24 22 67 40 00 00 5F 
+[INFO] [1778269945.440674656] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269945.483319104] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269945.862860096] [remote_control_node]: Sent max temperature: 43
+[INFO] [1778269946.483209600] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269947.485572416] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269948.501598592] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269949.493185792] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269949.864815904] [remote_control_node]: Sent max temperature: 43
+[INFO] [1778269950.151556832] [remote_control_node]: Sent position : (481597.552, 4210292.273, 185.071)
+[INFO] [1778269950.151704224] [remote_control_node]: TX POSITION [len=29] : F5 07 8B B0 D7 34 F6 64 1D 41 00 7F 76 11 9D 0F 50 41 78 7A A5 2C 43 22 67 40 00 00 5F 
+[INFO] [1778269950.487225600] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269951.482976896] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269951.502281376] [remote_control_node]: Received /progress: 2
+[INFO] [1778269951.502461760] [remote_control_node]: Sent progress: 2
+[INFO] [1778269951.502631840] [remote_control_node]: TX PROGRESS [len=8] : F5 06 01 00 02 00 00 5F 
+[INFO] [1778269951.502986304] [remote_control_node]: Received /acquired_points
+[INFO] [1778269951.503076800] [remote_control_node]: Cloud step=24 fields=3
+[INFO] [1778269951.503176384] [remote_control_node]: Sent PointCloud: 2 points func=0x02
+[INFO] [1778269951.503303168] [remote_control_node]: Received /unacquired_points
+[INFO] [1778269951.503386464] [remote_control_node]: Cloud step=24 fields=3
+[INFO] [1778269951.503513760] [remote_control_node]: Sent PointCloud: 99 points func=0x03
+[INFO] [1778269952.492712064] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778269952.801650336] [remote_control_node]: Sent Path with 77 points
+[WARN] [1778269952.886097408] [remote_control_node]: recv() failed: Connection reset by peer
+[WARN] [1778269952.886246976] [remote_control_node]: APP client disconnected; will auto-pause after 8.0s if it does not reconnect.
+[INFO] [1778269953.866587232] [remote_control_node]: Sent max temperature: 43
+[INFO] [1778269955.201444512] [remote_control_node]: Sent position : (481597.993, 4210293.247, 185.078)
+[INFO] [1778269955.201595392] [remote_control_node]: TX POSITION [len=29] : F5 07 AA 4B 96 F8 F7 64 1D 41 50 7D D4 4F 9D 0F 50 41 6D C5 FE B2 7B 22 67 40 00 00 5F 
+[ERROR] [1778269956.420915584] [remote_control_node]: APP heartbeat timeout 3.93s > 3.50s; entering disconnect protection.
+[INFO] [1778269956.421109024] [remote_control_node]: Received command: pause (0x02), reason: APP heartbeat timeout
+[INFO] [1778269956.421377856] [remote_control_node]: Pause request accepted; waiting for emergency_stop response confirmation.
+[INFO] [1778269956.422353344] [remote_control_node]: Emergency stop response: success=true message='Task paused at state: EXECUTING_ARM_TASK'
+[INFO] [1778269957.868432160] [remote_control_node]: Sent max temperature: 43
+[INFO] [1778269960.201468640] [remote_control_node]: Sent position : (481598.048, 4210293.355, 185.081)
+[INFO] [1778269960.201622944] [remote_control_node]: TX POSITION [len=29] : F5 07 25 93 C2 30 F8 64 1D 41 7B 2B B1 56 9D 0F 50 41 31 99 2A 18 95 22 67 40 00 00 5F 
+[ERROR] [1778269960.886409696] [remote_control_node]: APP client disconnected timeout 8.0s reached; requesting automatic pause.
+[INFO] [1778269960.886494112] [remote_control_node]: Received command: pause (0x02), reason: APP client disconnected timeout
+[INFO] [1778269960.886739168] [remote_control_node]: Pause request accepted; waiting for emergency_stop response confirmation.
+[INFO] [1778269960.887011840] [remote_control_node]: Emergency stop response: success=true message='Task already paused at state: EXECUTING_ARM_TASK'
+[INFO] [1778269961.870270432] [remote_control_node]: Sent max temperature: 43
+[INFO] [1778269965.251425280] [remote_control_node]: Sent position : (481598.050, 4210293.353, 185.080)
+[INFO] [1778269965.251574624] [remote_control_node]: TX POSITION [len=29] : F5 07 FD D3 59 33 F8 64 1D 41 56 50 98 56 9D 0F 50 41 CD 3B 4E D1 91 22 67 40 00 00 5F 
+[INFO] [1778269965.872224832] [remote_control_node]: Sent max temperature: 43
+[INFO] [1778269967.351569216] [remote_control_node]: Sent Path with 95 points
+[INFO] [1778269969.874073792] [remote_control_node]: Sent max temperature: 43
+[INFO] [1778269970.251449600] [remote_control_node]: Sent position : (481597.033, 4210294.341, 185.079)
+[INFO] [1778269970.251616960] [remote_control_node]: TX POSITION [len=29] : F5 07 D3 02 58 21 F4 64 1D 41 56 BC D6 95 9D 0F 50 41 54 52 27 A0 89 22 67 40 00 00 5F 
+[INFO] [1778269971.451584480] [remote_control_node]: Sent Path with 123 points
+[INFO] [1778269973.876170848] [remote_control_node]: Sent max temperature: 43
+[INFO] [1778269975.251453120] [remote_control_node]: Sent position : (481595.676, 4210296.063, 185.123)
+[INFO] [1778269975.301499296] [remote_control_node]: TX POSITION [len=29] : F5 07 95 CE 71 B4 EE 64 1D 41 B0 AD 02 04 9E 0F 50 41 5D FE 43 FA ED 23 67 40 00 00 5F 
+[INFO] [1778269977.877916640] [remote_control_node]: Sent max temperature: 43
+[INFO] [1778269980.301450144] [remote_control_node]: Sent position : (481595.677, 4210296.056, 185.131)
+[INFO] [1778269980.301612960] [remote_control_node]: TX POSITION [len=29] : F5 07 F2 C8 83 B5 EE 64 1D 41 10 45 91 03 9E 0F 50 41 19 04 56 0E 2D 24 67 40 00 00 5F 
+[INFO] [1778269981.879801856] [remote_control_node]: Sent max temperature: 43
+[INFO] [1778269985.301472992] [remote_control_node]: Sent position : (481595.676, 4210296.056, 185.139)
+[INFO] [1778269985.301617824] [remote_control_node]: TX POSITION [len=29] : F5 07 FB 7C A6 B4 EE 64 1D 41 88 57 8F 03 9E 0F 50 41 4D F3 8E 53 74 24 67 40 00 00 5F 
+[INFO] [1778269985.879812800] [remote_control_node]: Sent max temperature: 43
+[INFO] [1778269989.881612480] [remote_control_node]: Sent max temperature: 42
+[INFO] [1778269990.301480224] [remote_control_node]: Sent position : (481595.679, 4210296.056, 185.140)
+[INFO] [1778269990.351476000] [remote_control_node]: TX POSITION [len=29] : F5 07 F6 20 DB B0 EE 64 1D 41 D3 E5 4A 03 9E 0F 50 41 DC 68 00 6F 81 24 67 40 00 00 5F 
+[INFO] [1778269993.881651104] [remote_control_node]: Sent max temperature: 42
+[INFO] [1778269995.351461472] [remote_control_node]: Sent position : (481595.680, 4210296.056, 185.131)
+[INFO] [1778269995.351605920] [remote_control_node]: TX POSITION [len=29] : F5 07 D0 5A 87 B8 EE 64 1D 41 1D 08 8E 03 9E 0F 50 41 CA 32 C4 B1 2E 24 67 40 00 00 5F 
+[INFO] [1778269997.883454752] [remote_control_node]: Sent max temperature: 42
+[INFO] [1778270000.401483360] [remote_control_node]: Sent position : (481595.673, 4210296.057, 185.127)
+[INFO] [1778270000.401635424] [remote_control_node]: TX POSITION [len=29] : F5 07 FE 44 E8 B0 EE 64 1D 41 07 25 A0 03 9E 0F 50 41 8E 75 71 1B 0D 24 67 40 00 00 5F 
+[INFO] [1778270001.885381984] [remote_control_node]: Sent max temperature: 42
+[INFO] [1778270005.451461280] [remote_control_node]: Sent position : (481595.674, 4210296.055, 185.130)
+[INFO] [1778270005.451633376] [remote_control_node]: TX POSITION [len=29] : F5 07 43 3D 69 B2 EE 64 1D 41 77 E5 7E 03 9E 0F 50 41 A0 1A 2F DD 24 24 67 40 00 00 5F 
+[INFO] [1778270005.887176512] [remote_control_node]: Sent max temperature: 42
+[INFO] [1778270009.889142528] [remote_control_node]: Sent max temperature: 42
+[INFO] [1778270010.501445792] [remote_control_node]: Sent position : (481595.677, 4210296.056, 185.127)
+[INFO] [1778270010.501608000] [remote_control_node]: TX POSITION [len=29] : F5 07 CE 7F 3A B5 EE 64 1D 41 82 AE 9C 03 9E 0F 50 41 40 A4 DF BE 0E 24 67 40 00 00 5F 
+[INFO] [1778270013.890895104] [remote_control_node]: Sent max temperature: 42
+[INFO] [1778270015.551441472] [remote_control_node]: Sent position : (481595.670, 4210296.053, 185.118)
+[INFO] [1778270015.551620640] [remote_control_node]: TX POSITION [len=29] : F5 07 14 9B 6B AE EE 64 1D 41 AB 8B 62 03 9E 0F 50 41 0B B5 A6 79 C7 23 67 40 00 00 5F 
+[INFO] [1778270017.890933568] [remote_control_node]: Sent max temperature: 42
+[INFO] [1778270020.601465568] [remote_control_node]: Sent position : (481595.675, 4210296.058, 185.118)
+[INFO] [1778270020.601616096] [remote_control_node]: TX POSITION [len=29] : F5 07 5A A2 20 B3 EE 64 1D 41 FF B9 B1 03 9E 0F 50 41 BD E3 14 1D C9 23 67 40 00 00 5F 
+[INFO] [1778270021.892628064] [remote_control_node]: Sent max temperature: 42
+[INFO] [1778270025.651418912] [remote_control_node]: Sent position : (481595.669, 4210296.055, 185.122)
+[INFO] [1778270025.651559264] [remote_control_node]: TX POSITION [len=29] : F5 07 4C 93 28 AD EE 64 1D 41 1D 52 89 03 9E 0F 50 41 96 43 8B 6C E7 23 67 40 00 00 5F 
+[INFO] [1778270025.892664544] [remote_control_node]: Sent max temperature: 42
+[INFO] [1778270029.149846944] [remote_control_node]: APP heartbeat reset for new client: APP client connected
+[INFO] [1778270029.149958464] [remote_control_node]: New client connected from 192.168.88.27
+[INFO] [1778270029.150322400] [remote_control_node]: TX ALL_POINTS [len=2431] : F5 01 65 00 5A 64 3B 5F F7 64 1D 41 FA 7E 6A CC 9C 0F 50 41 4E 62 10 58 39 EC 66 40 04 56 0E 2D F7 64 1D 41 D1 22 DB 41 9D 0F 50 41 31 08 AC 1C 5A EC 66 40 79 E9 26 B1 F9 64 1D 41 2B 87 16 81 9D 0F 50 41 31 08 AC 1C 5A EC 66 40 21 B0 72 E8 F6 64 1D 41 52 B8 1E D5 9D 0F 50 41 87 16 D9 CE F7 EB 66 40 93 18 04 D6 F0 64 1D 41 54 E3 A5 AB 9D 0F 50 41 77 BE 9F 1A 2F ED 66 40 64 3B DF CF F0 64 1D 41 CD CC CC 1C 9E 0F 50 41 C5 20 B0 72 68 ED 66 40 AA F1 D2 CD E7 64 1D 41 12 83 C0 42 9E 0F 50 41 0E 2D B2 9D EF EF 66 40 CF F7 53 E3 E4 64 1D 41 73 68 91 65 9E 0F 50 41 62 10 58 39 B4 F0 66 40 B6 F3 FD 54 E1 64 1D 41 C3 F5 28 8C 9E 0F 50 41 35 5E BA 49 0C F2 66 40 BC 74 93 18 DE 64 1D 41 60 E5 D0 AA 9E 0F 50 41 33 33 33 33 33 F3 66 40 D5 78 E9 26 DA 64 1D 41 BC 74 93 D0 9E 0F 50 41 00 00 00 00 00 F4 66 40 02 2B 87 16 D6 64 1D 41 64 3B DF F7 9E 0F 50 41 3D 0A D7 A3 70 F5 66 40 4E 62 10 D8 D1 64 1D 41 CB A1 45 26 9F 0F 50 41 B4 C8 76 BE 9F F6 66 40 9C C4 20 30 CE 64 1D 41 56 0E 2D 4A 9F 0F 50 41 2B 87 16 D9 CE F7 66 40 3B DF 4F 0D CA 64 1D 41 33 33 33 73 9F 0F 50 41 7D 3F 35 5E BA F9 66 40 6A BC 74 93 C8 64 1D 41 85 EB 51 C8 9F 0F 50 41 F6 28 5C 8F C2 F9 66 40 7F 6A BC F4 CA 64 1D 41 21 B0 72 08 A0 0F 50 41 C3 F5 28 5C 8F FA 66 40 3F 35 5E 3A CE 64 1D 41 BE 9F 1A 5F A0 0F 50 41 60 E5 D0 22 DB F9 66 40 2F DD 24 86 D1 64 1D 41 29 5C 8F AA A0 0F 50 41 AE 47 E1 7A 14 FA 66 40 35 5E BA 49 D8 64 1D 41 12 83 C0 9A A0 0F 50 41 42 60 E5 D0 22 FB 66 40 9E EF A7 46 DF 64 1D 41 58 39 B4 50 A0 0F 50 41 6F 12 83 C0 CA FD 66 40 CB A1 45 36 E4 64 1D 41 CD CC CC 24 A0 0F 50 41 E3 A5 9B C4 20 00 67 40 25 06 81 15 E9 64 1D 41 7D 3F 35 F6 9F 0F 50 41 D1 22 DB F9 7E 02 67 40 08 AC 1C 5A EF 64 1D 41 B4 C8 76 BE 9F 0F 50 41 68 91 ED 7C 3F 05 67 40 3F 35 5E BA F5 64 1D 41 B2 9D EF E7 9F 0F 50 41 83 C0 CA A1 45 06 67 40 8F C2 F5 A8 F7 64 1D 41 21 B0 72 18 A0 0F 50 41 B4 C8 76 BE 9F 06 67 40 CB A1 45 B6 FC 64 1D 41 35 5E BA 69 A0 0F 50 41 0A D7 A3 70 3D 06 67 40 17 D9 CE 77 F3 64 1D 41 E7 FB A9 E9 A0 0F 50 41 87 16 D9 CE F7 07 67 40 12 83 C0 4A ED 64 1D 41 85 EB 51 30 A1 0F 50 41 02 2B 87 16 D9 0A 67 40 5E BA 49 8C E5 64 1D 41 C5 20 B0 82 A1 0F 50 41 C3 F5 28 5C 8F 0E 67 40 50 8D 97 EE DF 64 1D 41 5C 8F C2 BD A1 0F 50 41 85 EB 51 B8 1E 11 67 40 21 B0 72 68 D9 64 1D 41 60 E5 D0 02 A2 0F 50 41 3F 35 5E BA 49 14 67 40 54 E3 A5 1B D4 64 1D 41 31 08 AC 3C A2 0F 50 41 6D E7 FB A9 F1 16 67 40 A2 45 B6 F3 CC 64 1D 41 7B 14 AE 87 A2 0F 50 41 9E EF A7 C6 4B 17 67 40 FC A9 F1 52 BF 64 1D 41 BC 74 93 F0 A3 0F 50 41 02 2B 87 16 D9 16 67 40 CD CC CC CC B7 64 1D 41 1B 2F DD 3C A4 0F 50 41 B4 C8 76 BE 9F 16 67 40 48 E1 7A 94 B3 64 1D 41 B6 F3 FD 64 A4 0F 50 41 83 C0 CA A1 45 16 67 40 27 31 08 2C AF 64 1D 41 A4 70 3D 8A A4 0F 50 41 FC A9 F1 D2 4D 16 67 40 6F 12 83 C0 AA 64 1D 41 B6 F3 FD AC A4 0F 50 41 DF 4F 8D 97 6E 16 67 40 A8 C6 4B 37 A6 64 1D 41 6F 12 83 D8 A4 0F 50 41 4A 0C 02 2B 87 16 67 40 35 5E BA 49 A2 64 1D 41 F6 28 5C FF A4 0F 50 41 B4 C8 76 BE 9F 16 67 40 4C 37 89 C1 9D 64 1D 41 42 60 E5 30 A5 0F 50 41 D7 A3 70 3D 0A 17 67 40 7B 14 AE 47 98 64 1D 41 4E 62 10 80 A5 0F 50 41 CF F7 53 E3 A5 17 67 40 81 95 43 0B 92 64 1D 41 79 E9 26 91 A5 0F 50 41 75 93 18 04 56 16 67 40 48 E1 7A 14 8F 64 1D 41 CF F7 53 C3 A5 0F 50 41 58 39 B4 C8 76 16 67 40 06 81 95 43 88 64 1D 41 1D 5A 64 E3 A5 0F 50 41 98 6E 12 83 C0 16 67 40 D1 22 DB 79 83 64 1D 41 BC 74 93 18 A6 0F 50 41 25 06 81 95 43 17 67 40 77 BE 9F 1A 80 64 1D 41 C1 CA A1 75 A6 0F 50 41 56 0E 2D B2 9D 17 67 40 35 5E BA 49 79 64 1D 41 5A 64 3B B7 A6 0F 50 41 9E EF A7 C6 4B 17 67 40 CF F7 53 E3 71 64 1D 41 EE 7C 3F DD A6 0F 50 41 FA 7E 6A BC 74 17 67 40 5A 64 3B DF 6A 64 1D 41 3F 35 5E 1A A7 0F 50 41 E3 A5 9B C4 20 18 67 40 E1 7A 14 2E 68 64 1D 41 25 06 81 9D A7 0F 50 41 14 AE 47 E1 7A 18 67 40 F0 A7 C6 4B 60 64 1D 41 F6 28 5C EF A7 0F 50 41 FE D4 78 E9 26 19 67 40 60 E5 D0 A2 5B 64 1D 41 6F 12 83 18 A8 0F 50 41 E9 26 31 08 AC 18 67 40 F2 D2 4D E2 53 64 1D 41 81 95 43 53 A8 0F 50 41 93 18 04 56 0E 19 67 40 46 B6 F3 FD 4D 64 1D 41 BE 9F 1A 87 A8 0F 50 41 21 B0 72 68 91 19 67 40 E1 7A 14 AE 47 64 1D 41 4E 62 10 C0 A8 0F 50 41 60 E5 D0 22 DB 19 67 40 B0 72 68 11 42 64 1D 41 2D B2 9D EF A8 0F 50 41 D9 CE F7 53 E3 19 67 40 D1 22 DB 79 3B 64 1D 41 71 3D 0A 17 A9 0F 50 41 C3 F5 28 5C 8F 1A 67 40 DD 24 06 81 36 64 1D 41 1B 2F DD 44 A9 0F 50 41 2D B2 9D EF A7 1A 67 40 0E 2D B2 1D 32 64 1D 41 FC A9 F1 6A A9 0F 50 41 75 93 18 04 56 1A 67 40 77 BE 9F 1A 2E 64 1D 41 D3 4D 62 90 A9 0F 50 41 33 33 33 33 33 1B 67 40 46 B6 F3 7D 29 64 1D 41 0A D7 A3 B8 A9 0F 50 41 87 16 D9 CE F7 1B 67 40 06 81 95 C3 24 64 1D 41 B6 F3 FD E4 A9 0F 50 41 AA F1 D2 4D 62 1C 67 40 8F C2 F5 A8 20 64 1D 41 37 89 41 08 AA 0F 50 41 14 AE 47 E1 7A 1C 67 40 12 83 C0 CA 19 64 1D 41 42 60 E5 48 AA 0F 50 41 5A 64 3B DF 4F 1D 67 40 52 B8 1E 05 14 64 1D 41 75 93 18 7C AA 0F 50 41 B4 C8 76 BE 9F 1E 67 40 DF 4F 8D 17 0E 64 1D 41 E9 26 31 B0 AA 0F 50 41 17 D9 CE F7 53 1F 67 40 25 06 81 15 07 64 1D 41 E7 FB A9 F1 AA 0F 50 41 3D 0A D7 A3 70 21 67 40 0E 2D B2 1D 05 64 1D 41 C7 4B 37 C1 AA 0F 50 41 0E 2D B2 9D EF 1F 67 40 5A 64 3B DF 0B 64 1D 41 9A 99 99 81 AA 0F 50 41 00 00 00 00 00 20 67 40 DF 4F 8D 97 11 64 1D 41 D7 A3 70 4D AA 0F 50 41 42 60 E5 D0 22 1F 67 40 58 39 B4 48 17 64 1D 41 D3 4D 62 18 AA 0F 50 41 3D 0A D7 A3 70 1D 67 40 9C C4 20 30 1E 64 1D 41 4A 0C 02 DB A9 0F 50 41 85 EB 51 B8 1E 1D 67 40 9C C4 20 B0 2B 64 1D 41 62 10 58 61 A9 0F 50 41 56 0E 2D B2 9D 1B 67 40 06 81 95 43 31 64 1D 41 2F DD 24 2E A9 0F 50 41 AC 1C 5A 64 3B 1B 67 40 2B 87 16 D9 37 64 1D 41 C3 F5 28 F4 A8 0F 50 41 AC 1C 5A 64 3B 1B 67 40 B0 72 68 11 38 64 1D 41 29 5C 8F F2 A8 0F 50 41 66 66 66 66 66 1A 67 40 1B 2F DD 24 3F 64 1D 41 2B 87 16 B1 A8 0F 50 41 19 04 56 0E 2D 1A 67 40 77 BE 9F 9A 47 64 1D 41 77 BE 9F 62 A8 0F 50 41 AE 47 E1 7A 14 1A 67 40 31 08 AC 1C 4D 64 1D 41 4A 0C 02 33 A8 0F 50 41 4C 37 89 41 60 19 67 40 6F 12 83 40 51 64 1D 41 C1 CA A1 0D A8 0F 50 41 BE 9F 1A 2F DD 18 67 40 12 83 C0 4A 59 64 1D 41 6F 12 83 C8 A7 0F 50 41 62 10 58 39 B4 18 67 40 04 56 0E 2D 5A 64 1D 41 5C 8F C2 6D A7 0F 50 41 CF F7 53 E3 A5 17 67 40 02 2B 87 16 54 64 1D 41 AC 1C 5A A4 A6 0F 50 41 C5 20 B0 72 68 11 67 40 00 00 00 00 52 64 1D 41 D9 CE F7 63 A6 0F 50 41 89 41 60 E5 D0 0E 67 40 4C 37 89 C1 4D 64 1D 41 9C C4 20 F0 A5 0F 50 41 2B 87 16 D9 CE 0B 67 40 DF 4F 8D 97 49 64 1D 41 1F 85 EB 71 A5 0F 50 41 3B DF 4F 8D 97 06 67 40 B0 72 68 11 3D 64 1D 41 93 18 04 16 A4 0F 50 41 B8 1E 85 EB 51 FC 66 40 3B DF 4F 0D 3E 64 1D 41 FC A9 F1 B2 A3 0F 50 41 85 EB 51 B8 1E F9 66 40 AE 47 E1 7A 3F 64 1D 41 BA 49 0C 0A A3 0F 50 41 10 58 39 B4 C8 F6 66 40 B0 72 68 91 43 64 1D 41 7F 6A BC 9C A2 0F 50 41 66 66 66 66 66 F6 66 40 1D 5A 64 BB 49 64 1D 41 F8 53 E3 65 A2 0F 50 41 B4 C8 76 BE 9F F6 66 40 B8 1E 85 6B 4F 64 1D 41 AC 1C 5A 2C A2 0F 50 41 04 56 0E 2D B2 F5 66 40 AA F1 D2 4D 54 64 1D 41 A8 C6 4B FF A1 0F 50 41 D3 4D 62 10 58 F5 66 40 62 10 58 B9 59 64 1D 41 93 18 04 CE A1 0F 50 41 F0 A7 C6 4B 37 F5 66 40 AA F1 D2 4D 62 64 1D 41 91 ED 7C 7F A1 0F 50 41 DB F9 7E 6A BC F4 66 40 FA 7E 6A BC 66 64 1D 41 6F 12 83 58 A1 0F 50 41 0C 02 2B 87 16 F5 66 40 1B 2F DD 24 73 64 1D 41 3B DF 4F E5 A0 0F 50 41 14 AE 47 E1 7A F4 66 40 A4 70 3D 0A 77 64 1D 41 8B 6C E7 BB A0 0F 50 41 FA 7E 6A BC 74 F3 66 40 8D 97 6E 92 7E 64 1D 41 33 33 33 7B A0 0F 50 41 B2 9D EF A7 C6 F3 66 40 00 00 5F 
+[INFO] [1778270029.150580608] [remote_control_node]: Sent ALL points (101 points) with func=0x01
+[INFO] [1778270029.894611552] [remote_control_node]: Sent max temperature: 42
+[INFO] [1778270030.011129568] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270030.651449600] [remote_control_node]: Sent position : (481595.674, 4210296.058, 185.119)
+[INFO] [1778270030.651599808] [remote_control_node]: TX POSITION [len=29] : F5 07 67 88 8D B2 EE 64 1D 41 CE 48 B8 03 9E 0F 50 41 E7 FB A9 F1 D2 23 67 40 00 00 5F 
+[INFO] [1778270030.935370272] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270031.945702400] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270032.930851488] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270033.896468800] [remote_control_node]: Sent max temperature: 42
+[INFO] [1778270033.937962688] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270034.280400224] [remote_control_node]: RX COMMAND [len=8] : F5 08 01 00 0A 00 00 5F 
+[INFO] [1778270034.280488864] [remote_control_node]: Decoded instruction type: 0x0A
+[INFO] [1778270034.280539200] [remote_control_node]: APP heartbeat session active: posture command
+[INFO] [1778270034.280633568] [remote_control_node]: Published Joy action for instruction 0x0A
+[INFO] [1778270034.932806816] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270034.951604640] [remote_control_node]: Sent Path with 134 points
+[INFO] [1778270035.651470720] [remote_control_node]: Sent position : (481595.653, 4210296.072, 184.947)
+[INFO] [1778270035.651615520] [remote_control_node]: TX POSITION [len=29] : F5 07 5F D2 E6 9C EE 64 1D 41 B9 D9 99 04 9E 0F 50 41 B8 1E 85 EB 51 1E 67 40 00 00 5F 
+[INFO] [1778270036.439687648] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270036.935334656] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270037.898291776] [remote_control_node]: Sent max temperature: 42
+[INFO] [1778270037.936601376] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+
+==> /home/test/logs/tcp_base_ctl_latest/b2w_teleop.log <==
+[INFO] [1778270038.295818528] [b2w_teleop_node]: Executed StandDown from APP command.
+
+==> /home/test/logs/tcp_base_ctl_latest/robot_tcp.log <==
+[INFO] [1778270038.902416960] [remote_control_node]: RX COMMAND [len=8] : F5 08 01 00 0B 00 00 5F 
+[INFO] [1778270038.902547584] [remote_control_node]: Decoded instruction type: 0x0B
+[INFO] [1778270038.902589216] [remote_control_node]: APP heartbeat session active: posture command
+[INFO] [1778270038.902699104] [remote_control_node]: Published Joy action for instruction 0x0B
+[INFO] [1778270038.934517024] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270039.935511424] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270040.701504928] [remote_control_node]: Sent position : (481595.671, 4210295.998, 184.718)
+[INFO] [1778270040.701681920] [remote_control_node]: TX POSITION [len=29] : F5 07 46 50 5B AF EE 64 1D 41 67 08 DD FF 9D 0F 50 41 8C B9 6B 09 F9 16 67 40 00 00 5F 
+[INFO] [1778270040.940322720] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270041.201646144] [remote_control_node]: Sent Path with 137 points
+[INFO] [1778270041.898364288] [remote_control_node]: Sent max temperature: 42
+[INFO] [1778270041.935806208] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270042.950710592] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+
+==> /home/test/logs/tcp_base_ctl_latest/b2w_teleop.log <==
+[INFO] [1778270043.299339552] [b2w_teleop_node]: Executed StandUp from APP command.
+
+==> /home/test/logs/tcp_base_ctl_latest/robot_tcp.log <==
+[INFO] [1778270043.944156448] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270044.945104448] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270045.751466016] [remote_control_node]: Sent position : (481595.657, 4210295.981, 185.150)
+[INFO] [1778270045.751718208] [remote_control_node]: TX POSITION [len=29] : F5 07 95 38 3D A1 EE 64 1D 41 F9 4D CD FE 9D 0F 50 41 CD CC CC CC CC 24 67 40 00 00 5F 
+[INFO] [1778270045.900097632] [remote_control_node]: Sent max temperature: 42
+[INFO] [1778270045.935270560] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270047.384674304] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270048.447703232] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270048.952664128] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270049.901859072] [remote_control_node]: Sent max temperature: 42
+[INFO] [1778270049.938135200] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270050.801467584] [remote_control_node]: Sent position : (481595.651, 4210295.980, 185.153)
+[INFO] [1778270050.801612768] [remote_control_node]: TX POSITION [len=29] : F5 07 01 EF FA 9A EE 64 1D 41 9E BB B5 FE 9D 0F 50 41 D4 2B 65 19 E2 24 67 40 00 00 5F 
+[INFO] [1778270051.400672704] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270051.937619776] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270052.942090080] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270053.901914496] [remote_control_node]: Sent max temperature: 42
+[INFO] [1778270053.944752800] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270054.937566752] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270055.851466720] [remote_control_node]: Sent position : (481595.657, 4210295.978, 185.150)
+[INFO] [1778270055.851619392] [remote_control_node]: TX POSITION [len=29] : F5 07 64 86 BA A0 EE 64 1D 41 D4 57 9F FE 9D 0F 50 41 D7 12 F2 41 CF 24 67 40 00 00 5F 
+[INFO] [1778270055.954662112] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270056.940882048] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270057.903672704] [remote_control_node]: Sent max temperature: 42
+[INFO] [1778270057.951110816] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270058.940570304] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270059.937504832] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270060.901454624] [remote_control_node]: Sent position : (481595.659, 4210295.984, 185.159)
+[INFO] [1778270060.901603712] [remote_control_node]: TX POSITION [len=29] : F5 07 B5 49 4E A3 EE 64 1D 41 5A DA FD FE 9D 0F 50 41 B3 EA 73 B5 15 25 67 40 00 00 5F 
+[INFO] [1778270060.941433088] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270061.903682016] [remote_control_node]: Sent max temperature: 42
+[INFO] [1778270061.938771968] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270062.939925664] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270063.940135296] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270064.939459872] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270065.901484832] [remote_control_node]: Sent position : (481595.656, 4210295.980, 185.153)
+[INFO] [1778270065.901626944] [remote_control_node]: TX POSITION [len=29] : F5 07 C9 27 B2 9F EE 64 1D 41 E5 23 B9 FE 9D 0F 50 41 2D 43 1C EB E2 24 67 40 00 00 5F 
+[INFO] [1778270065.905526880] [remote_control_node]: Sent max temperature: 42
+[INFO] [1778270065.947896864] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270066.941581344] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270067.940877888] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270068.959111968] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270069.907917696] [remote_control_node]: Sent max temperature: 42
+[INFO] [1778270069.941130240] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270070.901573120] [remote_control_node]: Sent position : (481595.660, 4210295.983, 185.153)
+[INFO] [1778270070.901703808] [remote_control_node]: TX POSITION [len=29] : F5 07 8F 4A C2 A3 EE 64 1D 41 B2 58 E9 FE 9D 0F 50 41 DE 71 8A 8E E4 24 67 40 00 00 5F 
+[INFO] [1778270070.941471936] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270071.944605824] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270072.941189088] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270073.909387840] [remote_control_node]: Sent max temperature: 42
+[INFO] [1778270073.942370720] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270074.947905952] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270075.941890560] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270075.951424576] [remote_control_node]: Sent position : (481595.659, 4210295.981, 185.152)
+[INFO] [1778270075.951550560] [remote_control_node]: TX POSITION [len=29] : F5 07 A1 8C CF A2 EE 64 1D 41 79 05 C9 FE 9D 0F 50 41 70 CE 88 D2 DE 24 67 40 00 00 5F 
+[INFO] [1778270076.944205248] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270077.911101088] [remote_control_node]: Sent max temperature: 43
+[INFO] [1778270077.941718880] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270078.940935584] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270079.941040256] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270080.941637344] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270080.951449504] [remote_control_node]: Sent position : (481595.662, 4210295.982, 185.154)
+[INFO] [1778270080.951568928] [remote_control_node]: TX POSITION [len=29] : F5 07 A5 97 37 A6 EE 64 1D 41 70 CF D8 FE 9D 0F 50 41 09 8A 1F 63 EE 24 67 40 00 00 5F 
+[INFO] [1778270081.911165984] [remote_control_node]: Sent max temperature: 43
+[INFO] [1778270081.941194560] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270082.942512320] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270083.943099936] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270084.940874848] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270085.912861632] [remote_control_node]: Sent max temperature: 43
+[INFO] [1778270085.940633792] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270086.001456864] [remote_control_node]: Sent position : (481595.662, 4210295.982, 185.154)
+[INFO] [1778270086.001598496] [remote_control_node]: TX POSITION [len=29] : F5 07 97 57 90 A5 EE 64 1D 41 17 3A DF FE 9D 0F 50 41 FE 43 FA ED EB 24 67 40 00 00 5F 
+[INFO] [1778270086.942766976] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270087.958753984] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270089.263719840] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270089.914722304] [remote_control_node]: Sent max temperature: 43
+[INFO] [1778270089.964669600] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270090.944680096] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270091.051475360] [remote_control_node]: Sent position : (481595.662, 4210295.986, 185.162)
+[INFO] [1778270091.051616448] [remote_control_node]: TX POSITION [len=29] : F5 07 37 A4 8F A5 EE 64 1D 41 03 29 1E FF 9D 0F 50 41 1E A7 E8 48 2E 25 67 40 00 00 5F 
+[INFO] [1778270091.943720000] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270092.943496096] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270093.914765280] [remote_control_node]: Sent max temperature: 43
+[INFO] [1778270093.950407264] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270094.941633856] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270095.955957664] [remote_control_node]: RX COMMAND [len=8] : F5 08 01 00 01 00 00 5F 
+[INFO] [1778270095.956070144] [remote_control_node]: Decoded instruction type: 0x01
+start_all already running with pid 6662
+[INFO] [1778270095.961424832] [remote_control_node]: Start command system() returned 0
+[INFO] [1778270095.961500608] [remote_control_node]: APP heartbeat session active: start command
+[INFO] [1778270095.961553088] [remote_control_node]: Received command: start (0x01)
+[INFO] [1778270095.961632256] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270096.051478976] [remote_control_node]: Sent position : (481595.657, 4210295.990, 185.169)
+[INFO] [1778270096.051630016] [remote_control_node]: TX POSITION [len=29] : F5 07 0A 8C 7A A0 EE 64 1D 41 59 06 59 FF 9D 0F 50 41 76 4F 1E 16 6A 25 67 40 00 00 5F 
+[INFO] [1778270097.456725024] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270097.916714816] [remote_control_node]: Sent max temperature: 43
+[INFO] [1778270097.942295616] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270098.963284704] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270099.958919488] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270100.956449952] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270101.101459904] [remote_control_node]: Sent position : (481595.665, 4210295.990, 185.171)
+[INFO] [1778270101.101615072] [remote_control_node]: TX POSITION [len=29] : F5 07 E9 1E 1B A9 EE 64 1D 41 87 7F 5E FF 9D 0F 50 41 FA 7E 6A BC 74 25 67 40 00 00 5F 
+[INFO] [1778270101.918456160] [remote_control_node]: Sent max temperature: 43
+[INFO] [1778270101.944466464] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270102.946459648] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270103.948375872] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270104.944342368] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270105.920645664] [remote_control_node]: Sent max temperature: 43
+[INFO] [1778270105.947566336] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270106.101461856] [remote_control_node]: Sent position : (481595.661, 4210295.987, 185.152)
+[INFO] [1778270106.151497088] [remote_control_node]: TX POSITION [len=29] : F5 07 F7 EE 3F 9E EE 64 1D 41 5F EA F2 FE 9D 0F 50 41 70 CE 88 D2 DE 24 67 40 00 00 5F 
+[INFO] [1778270106.965473152] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270107.944292896] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270108.949338464] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270109.922306368] [remote_control_node]: Sent max temperature: 43
+[INFO] [1778270109.944624032] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270110.944854688] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270111.101466752] [remote_control_node]: Sent position : (481595.657, 4210295.982, 185.165)
+[INFO] [1778270111.201469472] [remote_control_node]: TX POSITION [len=29] : F5 07 62 EC 1A 9E EE 64 1D 41 6E CF C0 FE 9D 0F 50 41 A8 35 CD 3B 4E 25 67 40 00 00 5F 
+[INFO] [1778270111.946765280] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270113.456688320] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270113.924183872] [remote_control_node]: Sent max temperature: 44
+[INFO] [1778270113.945040064] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270114.945923616] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270115.950710720] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270116.151475744] [remote_control_node]: Sent position : (481595.659, 4210295.981, 185.158)
+[INFO] [1778270116.251489056] [remote_control_node]: TX POSITION [len=29] : F5 07 75 7B 02 A3 EE 64 1D 41 2A F2 C6 FE 9D 0F 50 41 E5 D0 22 DB F9 24 67 40 00 00 5F 
+[INFO] [1778270116.948035776] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270117.926109504] [remote_control_node]: Sent max temperature: 44
+[INFO] [1778270117.947468896] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270118.952352608] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270119.955976384] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270120.949680512] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270121.201511456] [remote_control_node]: Sent position : (481595.658, 4210295.977, 185.147)
+[INFO] [1778270121.301446656] [remote_control_node]: TX POSITION [len=29] : F5 07 73 83 94 A1 EE 64 1D 41 6D 72 86 FE 9D 0F 50 41 FF B2 7B F2 B0 24 67 40 00 00 5F 
+[INFO] [1778270121.927947776] [remote_control_node]: Sent max temperature: 44
+[INFO] [1778270121.948113632] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270122.947037696] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270123.947726656] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270124.951456864] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270125.929907840] [remote_control_node]: Sent max temperature: 44
+[INFO] [1778270125.947045312] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270126.251461056] [remote_control_node]: Sent position : (481595.662, 4210295.980, 185.150)
+[INFO] [1778270126.301457472] [remote_control_node]: TX POSITION [len=29] : F5 07 B0 22 6D A5 EE 64 1D 41 9D 2A B7 FE 9D 0F 50 41 30 2A A9 13 D0 24 67 40 00 00 5F 
+[INFO] [1778270126.948825472] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270127.951469632] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270128.948155232] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270129.931972128] [remote_control_node]: Sent max temperature: 44
+[INFO] [1778270129.948969056] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270130.927504128] [remote_control_node]: RX COMMAND [len=8] : F5 08 01 00 01 00 00 5F 
+[INFO] [1778270130.927671776] [remote_control_node]: Decoded instruction type: 0x01
+start_all already running with pid 6662
+[INFO] [1778270130.933107648] [remote_control_node]: Start command system() returned 0
+[INFO] [1778270130.933201344] [remote_control_node]: APP heartbeat session active: start command
+[INFO] [1778270130.933243200] [remote_control_node]: Received command: start (0x01)
+[INFO] [1778270130.965249600] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270131.301435328] [remote_control_node]: Sent position : (481595.663, 4210295.981, 185.159)
+[INFO] [1778270131.301576128] [remote_control_node]: TX POSITION [len=29] : F5 07 2B 59 CD A6 EE 64 1D 41 36 32 CE FE 9D 0F 50 41 A9 A4 4E 40 13 25 67 40 00 00 5F 
+[INFO] [1778270131.947733824] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270132.960147264] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270133.933598304] [remote_control_node]: Sent max temperature: 44
+[INFO] [1778270133.952405888] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270134.965949760] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270135.949559168] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270136.301511456] [remote_control_node]: Sent position : (481595.656, 4210295.980, 185.153)
+[INFO] [1778270136.301656928] [remote_control_node]: TX POSITION [len=29] : F5 07 25 68 36 A0 EE 64 1D 41 38 95 BA FE 9D 0F 50 41 7B 14 AE 47 E1 24 67 40 00 00 5F 
+[INFO] [1778270136.950878176] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270137.935588896] [remote_control_node]: Sent max temperature: 44
+[INFO] [1778270138.048174272] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270138.963092448] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270139.951958528] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270140.954338016] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270141.351441536] [remote_control_node]: Sent position : (481595.654, 4210295.977, 185.161)
+[INFO] [1778270141.351591840] [remote_control_node]: TX POSITION [len=29] : F5 07 96 F6 2B 9E EE 64 1D 41 10 C6 8A FE 9D 0F 50 41 FE D4 78 E9 26 25 67 40 00 00 5F 
+[INFO] [1778270141.937458112] [remote_control_node]: Sent max temperature: 44
+[INFO] [1778270141.976195200] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270142.952633216] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270143.951161824] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270144.952567168] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270145.939158368] [remote_control_node]: Sent max temperature: 44
+[INFO] [1778270145.962204512] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270146.351442464] [remote_control_node]: Sent position : (481595.660, 4210295.976, 185.157)
+[INFO] [1778270146.351600928] [remote_control_node]: TX POSITION [len=29] : F5 07 8A 31 A2 A3 EE 64 1D 41 EC 88 7B FE 9D 0F 50 41 10 E9 B7 AF 03 25 67 40 00 00 5F 
+[INFO] [1778270146.951276608] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270147.951477568] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270148.952148416] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270149.939218880] [remote_control_node]: Sent max temperature: 44
+[INFO] [1778270149.954076512] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270150.955508896] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270151.351486528] [remote_control_node]: Sent position : (481595.654, 4210295.977, 185.148)
+[INFO] [1778270151.351660704] [remote_control_node]: TX POSITION [len=29] : F5 07 67 7E 76 9D EE 64 1D 41 B9 46 85 FE 9D 0F 50 41 34 11 36 3C BD 24 67 40 00 00 5F 
+[INFO] [1778270151.956580480] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270152.955412288] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270153.941052768] [remote_control_node]: Sent max temperature: 45
+[INFO] [1778270153.955136960] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270154.982157216] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270155.956862432] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270156.401430144] [remote_control_node]: Sent position : (481595.655, 4210295.973, 185.151)
+[INFO] [1778270156.401564800] [remote_control_node]: TX POSITION [len=29] : F5 07 17 16 5C 9E EE 64 1D 41 1E 66 48 FE 9D 0F 50 41 A9 13 D0 44 D8 24 67 40 00 00 5F 
+[INFO] [1778270156.957093408] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270157.942956320] [remote_control_node]: Sent max temperature: 45
+[INFO] [1778270157.955485088] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270158.965021888] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270159.956844704] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270160.955644672] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270161.451410176] [remote_control_node]: Sent position : (481595.661, 4210295.982, 185.147)
+[INFO] [1778270161.451545984] [remote_control_node]: TX POSITION [len=29] : F5 07 A1 B5 E9 A4 EE 64 1D 41 34 33 D3 FE 9D 0F 50 41 C6 6D 34 80 B7 24 67 40 00 00 5F 
+[INFO] [1778270161.944714208] [remote_control_node]: Sent max temperature: 45
+[INFO] [1778270161.956319648] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270162.959220064] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270163.692800192] [remote_control_node]: RX COMMAND [len=8] : F5 08 01 00 03 00 00 5F 
+[INFO] [1778270163.692932832] [remote_control_node]: Decoded instruction type: 0x03
+[INFO] [1778270163.692965856] [remote_control_node]: Received command: stop (0x03)
+
+==> /home/test/logs/tcp_base_ctl_latest/b2w_teleop.log <==
+[WARN] [1778270163.693809632] [b2w_teleop_node]: SportClient command failed, code: -1
+[WARN] [1778270163.713815744] [b2w_teleop_node]: SportClient command failed, code: -1
+[WARN] [1778270163.733734688] [b2w_teleop_node]: SportClient command failed, code: -1
+
+==> /home/test/logs/tcp_base_ctl_latest/robot_tcp.log <==
+[ERROR] [1778270163.753353856] [remote_control_node]: Published fail-safe StopMove Joy command: stop command
+[ERROR] [1778270163.753453152] [remote_control_node]: Triggering start_all fail-safe stop because stop command. This intentionally stops the autonomous task instead of letting the robot continue uncontrolled.
+[ERROR] [1778270163.753707488] [remote_control_node]: Fail-safe stopping verified start_all pid=6662 pgid=6662.
+正在关闭所有节点...
+发送 SIGINT 到 PID: 6825
+[ERROR] [1778270164.253870912] [remote_control_node]: start_all pgid=6662 still alive after SIGTERM; escalating to SIGKILL.
+[ERROR] [1778270164.454379872] [remote_control_node]: start_all fail-safe stop completed for pgid=6662.
+[INFO] [1778270164.454468064] [remote_control_node]: APP heartbeat session inactive: stop command
+[INFO] [1778270164.454497152] [remote_control_node]: Stop command fail-safe returned 0
+[INFO] [1778270164.454571712] [remote_control_node]: Received command: stop (0x03)
+[INFO] [1778270164.454647200] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270164.965685760] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270165.973115456] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270166.963814432] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270167.990394624] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270168.961302272] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270169.970360480] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270171.008712256] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270171.977986944] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270172.981699744] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270173.964095872] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270174.969312256] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270176.471644320] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270176.471825056] [remote_control_node]: RX COMMAND [len=8] : F5 08 01 00 0A 00 00 5F 
+[INFO] [1778270176.471856736] [remote_control_node]: Decoded instruction type: 0x0A
+[INFO] [1778270176.471879776] [remote_control_node]: APP heartbeat session active: posture command
+[INFO] [1778270176.472085632] [remote_control_node]: Published Joy action for instruction 0x0A
+[INFO] [1778270176.966318816] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270177.969124288] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270178.966577568] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270179.968301184] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+
+==> /home/test/logs/tcp_base_ctl_latest/b2w_teleop.log <==
+[INFO] [1778270180.488537152] [b2w_teleop_node]: Executed StandDown from APP command.
+
+==> /home/test/logs/tcp_base_ctl_latest/robot_tcp.log <==
+[INFO] [1778270180.961882592] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270181.966203552] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270182.968550400] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270183.969761600] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270184.973365152] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270185.970491648] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270186.998633152] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270187.968494080] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+[INFO] [1778270188.978438496] [remote_control_node]: RX HEARTBEAT [len=8] : F5 FF 01 00 FF 00 00 5F 
+^C
