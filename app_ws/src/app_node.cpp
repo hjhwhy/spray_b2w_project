@@ -5,6 +5,7 @@
 #include <sensor_msgs/msg/joy.hpp> 
 #include <nav_msgs/msg/odometry.hpp>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
@@ -13,6 +14,7 @@
 #include <atomic>
 #include <cerrno>
 #include <chrono>
+#include <cmath>
 #include <cctype>
 #include <cstdint>
 #include <cstring>
@@ -34,6 +36,7 @@
 #include <fstream>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <std_srvs/srv/trigger.hpp>
@@ -56,12 +59,24 @@ public:
         this->declare_parameter<double>("heartbeat_timeout_seconds", 3.5);
         this->declare_parameter<bool>("heartbeat_required_after_control", true);
         this->declare_parameter<double>("arm_reset_timeout_seconds", 15.0);
+        this->declare_parameter<double>("position_upload_hz", 5.0);
+        this->declare_parameter<double>("position_upload_min_distance", 0.02);
         int port = this->get_parameter("listen_port").as_int();
         client_disconnect_auto_pause_seconds_ =
             this->get_parameter("client_disconnect_auto_pause_seconds").as_double();
         heartbeat_timeout_seconds_ = this->get_parameter("heartbeat_timeout_seconds").as_double();
         heartbeat_required_after_control_ = this->get_parameter("heartbeat_required_after_control").as_bool();
         arm_reset_timeout_seconds_ = this->get_parameter("arm_reset_timeout_seconds").as_double();
+        position_upload_hz_ = this->get_parameter("position_upload_hz").as_double();
+        position_upload_min_distance_ = this->get_parameter("position_upload_min_distance").as_double();
+        if (position_upload_hz_ < 0.0) {
+            RCLCPP_WARN(this->get_logger(), "position_upload_hz=%.3f is negative; disabling time-based position upload.", position_upload_hz_);
+            position_upload_hz_ = 0.0;
+        }
+        if (position_upload_min_distance_ < 0.0) {
+            RCLCPP_WARN(this->get_logger(), "position_upload_min_distance=%.3f is negative; clamping to 0.0.", position_upload_min_distance_);
+            position_upload_min_distance_ = 0.0;
+        }
         if (arm_reset_timeout_seconds_ < 1.0) {
             RCLCPP_WARN(
                 this->get_logger(),
@@ -89,6 +104,10 @@ public:
         progress_sub_ = this->create_subscription<std_msgs::msg::Byte>("/progress", 10,
             [this](const std_msgs::msg::Byte::SharedPtr msg) {
                 RCLCPP_INFO(this->get_logger(), "Received /progress: %u", msg->data);
+                {
+                    std::lock_guard<std::mutex> lock(upload_state_mutex_);
+                    latest_progress_ = msg->data;
+                }
                 sendProgress(msg->data);
             });
         position_sub_ = this->create_subscription<nav_msgs::msg::Odometry>("/b2w_odom", 10,
@@ -101,16 +120,30 @@ public:
         });
         path_sub_ = this->create_subscription<nav_msgs::msg::Path>("/b2w_path", 10,
             [this](const nav_msgs::msg::Path::SharedPtr msg) {
+                {
+                    std::lock_guard<std::mutex> lock(upload_state_mutex_);
+                    latest_path_ = msg;
+                }
                 sendPath(msg);
         });
         acquired_points_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
             "/acquired_points", 10, [this](const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
             RCLCPP_INFO(this->get_logger(), "Received /acquired_points");
+            const size_t num_points = static_cast<size_t>(msg->width) * static_cast<size_t>(msg->height);
+            if (num_points == 0 || hasFloat64XYZFields(*msg)) {
+                std::lock_guard<std::mutex> lock(upload_state_mutex_);
+                latest_acquired_points_ = msg;
+            }
             sendPointCloud(msg, 0x02);
         });
         unacquired_points_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
             "/unacquired_points", 10, [this](const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
             RCLCPP_INFO(this->get_logger(), "Received /unacquired_points");
+            const size_t num_points = static_cast<size_t>(msg->width) * static_cast<size_t>(msg->height);
+            if (num_points == 0 || hasFloat64XYZFields(*msg)) {
+                std::lock_guard<std::mutex> lock(upload_state_mutex_);
+                latest_unacquired_points_ = msg;
+            }
             sendPointCloud(msg, 0x03);
         });
         emergency_stop_client_ = this->create_client<std_srvs::srv::Trigger>("/emergency_stop");
@@ -129,7 +162,7 @@ public:
         cancelDisconnectAutoPause("remote_control_node shutting down; cancel disconnect auto-pause");
         {
             std::lock_guard<std::mutex> lock(client_mutex_);
-            closeClientSocketLocked();
+            shutdownClientSocketLocked();
         }
         if (server_fd_ >= 0) {
             close(server_fd_);
@@ -189,11 +222,12 @@ private:
                 RCLCPP_ERROR(this->get_logger(), "Accept failed: %s", std::strerror(errno));
                 continue;
             }
+            configureClientSocketTimeouts(new_socket);
 
             if (client_thread_.joinable()) {
                 {
                     std::lock_guard<std::mutex> lock(client_mutex_);
-                    closeClientSocketLocked();
+                    shutdownClientSocketLocked();
                 }
                 client_thread_.join();
             }
@@ -208,8 +242,9 @@ private:
             char client_ip[INET_ADDRSTRLEN];
             inet_ntop(AF_INET, &address.sin_addr, client_ip, INET_ADDRSTRLEN);
             RCLCPP_INFO(this->get_logger(), "New client connected from %s", client_ip);
-            sendAllPoints();
             client_thread_ = std::thread(&RemoteControlNode::handleClient, this, new_socket);
+            sendAllPoints();
+            replayLatestUploadStateToClient();
         }
         if (server_fd_ >= 0) {
             close(server_fd_);
@@ -235,6 +270,9 @@ private:
                 if (errno == EINTR) {
                     continue;
                 }
+                if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                    continue;
+                }
                 RCLCPP_WARN(this->get_logger(), "recv() failed: %s", std::strerror(errno));
                 break;
             }
@@ -248,14 +286,16 @@ private:
             }
         }
         bool active_client_disconnected = false;
+        bool should_close_sock = sock >= 0;
         {
             std::lock_guard<std::mutex> lock(client_mutex_);
             if (client_sock_ == sock) {
-                closeClientSocketLocked();
+                shutdownClientSocketLocked();
                 active_client_disconnected = true;
-            } else if (sock >= 0) {
-                close(sock);
             }
+        }
+        if (should_close_sock) {
+            close(sock);
         }
         if (active_client_disconnected && !stop_requested_.load()) {
             scheduleDisconnectAutoPause();
@@ -1060,7 +1100,7 @@ private:
         {
             std::lock_guard<std::mutex> client_lock(client_mutex_);
             if (client_sock_ >= 0) {
-                closeClientSocketLocked();
+                shutdownClientSocketLocked();
             }
         }
 
@@ -1220,13 +1260,25 @@ private:
         return false;
     }
 
-    void closeClientSocketLocked()
+    void configureClientSocketTimeouts(int sock)
+    {
+        timeval timeout{};
+        timeout.tv_sec = 1;
+        timeout.tv_usec = 0;
+        if (setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0) {
+            RCLCPP_WARN(this->get_logger(), "Failed to set SO_SNDTIMEO: %s", std::strerror(errno));
+        }
+        if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
+            RCLCPP_WARN(this->get_logger(), "Failed to set SO_RCVTIMEO: %s", std::strerror(errno));
+        }
+    }
+
+    void shutdownClientSocketLocked()
     {
         if (client_sock_ < 0) {
             return;
         }
         shutdown(client_sock_, SHUT_RDWR);
-        close(client_sock_);
         client_sock_ = -1;
     }
 
@@ -1265,7 +1317,8 @@ private:
                 return false;
             }
             if (!sendAllBytesLocked(client_sock_, data, len)) {
-                closeClientSocketLocked();
+                shutdown(client_sock_, SHUT_RDWR);
+                client_sock_ = -1;
                 closed_active_client = true;
             } else {
                 return true;
@@ -1282,21 +1335,97 @@ private:
         return sendPacket(packet.data(), packet.size());
     }
 
+    bool hasFloat64XYZFields(const sensor_msgs::msg::PointCloud2 &cloud)
+    {
+        const sensor_msgs::msg::PointField *x_field = nullptr;
+        const sensor_msgs::msg::PointField *y_field = nullptr;
+        const sensor_msgs::msg::PointField *z_field = nullptr;
+        for (const auto &field : cloud.fields) {
+            if (field.name == "x") {
+                x_field = &field;
+            } else if (field.name == "y") {
+                y_field = &field;
+            } else if (field.name == "z") {
+                z_field = &field;
+            }
+        }
+        auto is_valid_float64 = [](const sensor_msgs::msg::PointField *field) {
+            return field != nullptr &&
+                   field->datatype == sensor_msgs::msg::PointField::FLOAT64 &&
+                   field->count >= 1;
+        };
+        if (!is_valid_float64(x_field) || !is_valid_float64(y_field) || !is_valid_float64(z_field)) {
+            RCLCPP_ERROR(this->get_logger(),
+                         "PointCloud2 x/y/z fields must exist and be FLOAT64; refusing APP upload.");
+            return false;
+        }
+        const uint32_t required_point_step = std::max({x_field->offset, y_field->offset, z_field->offset}) + sizeof(double);
+        if (cloud.point_step < required_point_step) {
+            RCLCPP_ERROR(this->get_logger(),
+                         "PointCloud2 point_step=%u is too small for FLOAT64 x/y/z offsets (required >= %u); refusing APP upload.",
+                         cloud.point_step, required_point_step);
+            return false;
+        }
+        const size_t min_row_step = static_cast<size_t>(cloud.width) * cloud.point_step;
+        const size_t required_data_size = cloud.height > 0
+            ? static_cast<size_t>(cloud.row_step) * cloud.height
+            : 0;
+        if (cloud.is_bigendian) {
+            RCLCPP_ERROR(this->get_logger(),
+                         "PointCloud2 is big-endian but APP protocol requires little-endian FLOAT64; refusing APP upload.");
+            return false;
+        }
+        if (cloud.height > 1 && cloud.row_step != min_row_step) {
+            RCLCPP_ERROR(this->get_logger(),
+                         "PointCloud2 row_step=%u does not match tightly-packed width*point_step=%zu; refusing APP upload.",
+                         cloud.row_step, min_row_step);
+            return false;
+        }
+        if (cloud.row_step < min_row_step) {
+            RCLCPP_ERROR(this->get_logger(),
+                         "PointCloud2 row_step=%u is smaller than width*point_step=%zu; refusing APP upload.",
+                         cloud.row_step, min_row_step);
+            return false;
+        }
+        if (cloud.data.size() < required_data_size) {
+            RCLCPP_ERROR(this->get_logger(),
+                         "PointCloud2 data size=%zu is smaller than row_step*height=%zu; refusing APP upload.",
+                         cloud.data.size(), required_data_size);
+            return false;
+        }
+        return true;
+    }
+
+    void sendEmptyPointCloud(uint8_t func_code)
+    {
+        uint8_t packet[] = {0xF5, func_code, 0x00, 0x00, 0x00, 0x00, 0x5F};
+        if (sendPacket(packet, sizeof(packet))) {
+            logPacket("TX POINTCLOUD_EMPTY", packet, sizeof(packet), this->get_logger());
+            RCLCPP_INFO(this->get_logger(), "Sent empty PointCloud func=0x%02X count=0", func_code);
+        }
+    }
+
     void sendPointCloud(const sensor_msgs::msg::PointCloud2::SharedPtr cloud, uint8_t func_code)
     {
-        RCLCPP_INFO(this->get_logger(), "Cloud step=%u fields=%ld", cloud->point_step, cloud->fields.size());
+        RCLCPP_INFO(this->get_logger(), "Cloud step=%u fields=%zu", cloud->point_step, cloud->fields.size());
 
-        size_t num_points = cloud->width * cloud->height;
-        if (num_points == 0) return;
+        size_t num_points = static_cast<size_t>(cloud->width) * static_cast<size_t>(cloud->height);
+        if (num_points == 0) {
+            sendEmptyPointCloud(func_code);
+            return;
+        }
+        if (!hasFloat64XYZFields(*cloud)) {
+            return;
+        }
         if (num_points > std::numeric_limits<uint16_t>::max()) {
             RCLCPP_WARN(this->get_logger(), "PointCloud has %zu points, truncating to %u",
                         num_points, std::numeric_limits<uint16_t>::max());
             num_points = std::numeric_limits<uint16_t>::max();
         }
         try {
-            sensor_msgs::PointCloud2ConstIterator<float> iter_x(*cloud, "x");
-            sensor_msgs::PointCloud2ConstIterator<float> iter_y(*cloud, "y");
-            sensor_msgs::PointCloud2ConstIterator<float> iter_z(*cloud, "z");
+            sensor_msgs::PointCloud2ConstIterator<double> iter_x(*cloud, "x");
+            sensor_msgs::PointCloud2ConstIterator<double> iter_y(*cloud, "y");
+            sensor_msgs::PointCloud2ConstIterator<double> iter_z(*cloud, "z");
             size_t data_len = num_points * 24;  // 3 * double
             size_t packet_len = 1 + 1 + 2 + data_len + 2 + 1;
             std::vector<uint8_t> packet(packet_len);
@@ -1317,8 +1446,9 @@ private:
             packet[idx++] = 0;   // CRC low
             packet[idx++] = 0;   // CRC high
             packet[idx++] = 0x5F; // 包尾
-            sendPacket(packet);
-            RCLCPP_INFO(this->get_logger(), "Sent PointCloud: %zu points func=0x%02X", num_points, func_code);
+            if (sendPacket(packet)) {
+                RCLCPP_INFO(this->get_logger(), "Sent PointCloud: %zu points func=0x%02X", num_points, func_code);
+            }
         } catch (const std::exception& e) {
             RCLCPP_ERROR(this->get_logger(), "Failed to send PointCloud: %s", e.what());
         }
@@ -1326,7 +1456,14 @@ private:
 
     void sendAllPoints()
     {
-        if (all_points_.empty()) return;
+        if (all_points_.empty()) {
+            uint8_t packet[] = {0xF5, 0x01, 0x00, 0x00, 0x00, 0x00, 0x5F};
+            if (sendPacket(packet, sizeof(packet))) {
+                logPacket("TX ALL_POINTS_EMPTY", packet, sizeof(packet), this->get_logger());
+                RCLCPP_INFO(this->get_logger(), "Sent ALL points count=0 with func=0x01");
+            }
+            return;
+        }
         size_t num_points = all_points_.size();
         if (num_points > std::numeric_limits<uint16_t>::max()) {
             RCLCPP_WARN(this->get_logger(), "All points count %zu exceeds protocol limit, truncating to %u",
@@ -1343,7 +1480,8 @@ private:
         packet[idx++] = num_points & 0xFF;         
         packet[idx++] = (num_points >> 8) & 0xFF;
 
-        for (const auto& p : all_points_) {
+        for (size_t i = 0; i < num_points; ++i) {
+            const auto& p = all_points_[i];
             std::memcpy(&packet[idx], &p.x, sizeof(double)); idx += sizeof(double);
             std::memcpy(&packet[idx], &p.y, sizeof(double)); idx += sizeof(double);
             std::memcpy(&packet[idx], &p.z, sizeof(double)); idx += sizeof(double);
@@ -1351,9 +1489,10 @@ private:
         packet[idx++] = 0x00; // CRC low
         packet[idx++] = 0x00; // CRC high
         packet[idx++] = 0x5F; // tail
-        sendPacket(packet);
-        logPacket("TX ALL_POINTS", packet.data(), packet.size(), this->get_logger());
-        RCLCPP_INFO(this->get_logger(), "Sent ALL points (%zu points) with func=0x01", num_points);
+        if (sendPacket(packet)) {
+            logPacket("TX ALL_POINTS", packet.data(), packet.size(), this->get_logger());
+            RCLCPP_INFO(this->get_logger(), "Sent ALL points (%zu points) with func=0x01", num_points);
+        }
     }
 
     void sendProgress(uint8_t progress)
@@ -1366,12 +1505,52 @@ private:
             0x00, 0x00,      // CRC (ignored)
             0x5F
         };
-        sendPacket(packet, sizeof(packet));
-        RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 4000, "Sent progress: %u", progress);
-        logPacket("TX PROGRESS", packet, sizeof(packet), this->get_logger());
+        if (sendPacket(packet, sizeof(packet))) {
+            RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 4000, "Sent progress: %u", progress);
+            logPacket("TX PROGRESS", packet, sizeof(packet), this->get_logger());
+        }
     }
 
-    void sendPosition(double x, double y, double z) {
+    bool shouldSendPosition(double x, double y, double z)
+    {
+        if (!has_last_sent_position_) {
+            return true;
+        }
+        const auto now = this->now();
+        const double dx = x - last_sent_x_;
+        const double dy = y - last_sent_y_;
+        const double dz = z - last_sent_z_;
+        const double distance = std::sqrt(dx * dx + dy * dy + dz * dz);
+        if (distance >= position_upload_min_distance_) {
+            return true;
+        }
+        if (position_upload_hz_ > 0.0) {
+            const double min_interval = 1.0 / position_upload_hz_;
+            if ((now - last_position_sent_time_).seconds() >= min_interval) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void sendPosition(double x, double y, double z, bool force = false, bool update_throttle_state = true) {
+        if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z)) {
+            RCLCPP_WARN_THROTTLE(
+                this->get_logger(), *this->get_clock(), 3000,
+                "Skip invalid position: x=%.3f y=%.3f z=%.3f", x, y, z);
+            return;
+        }
+        {
+            std::lock_guard<std::mutex> lock(upload_state_mutex_);
+            latest_position_ = std::array<double, 3>{x, y, z};
+        }
+        if (!force) {
+            std::lock_guard<std::mutex> lock(position_upload_mutex_);
+            if (!shouldSendPosition(x, y, z)) {
+                return;
+            }
+        }
+
         uint8_t packet[1 + 1 + 3*8 + 2 + 1]; // 头+功能码+3*double+CRC+尾
         size_t idx = 0;
         packet[idx++] = 0xF5;               // 包头
@@ -1386,18 +1565,24 @@ private:
         packet[idx++] = 0x00;               // CRC high
         packet[idx++] = 0x5F;               // 包尾
 
-        sendPacket(packet, sizeof(packet));
+        if (!sendPacket(packet, sizeof(packet))) {
+            return;
+        }
+        if (update_throttle_state) {
+            std::lock_guard<std::mutex> lock(position_upload_mutex_);
+            last_position_sent_time_ = this->now();
+            has_last_sent_position_ = true;
+            last_sent_x_ = x;
+            last_sent_y_ = y;
+            last_sent_z_ = z;
+        }
         RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 5000,
          "Sent position : (%.3f, %.3f, %.3f)", x, y, z);
         logPacket("TX POSITION", packet, sizeof(packet), this->get_logger(), 5000);
     }
-    void sendMaxTemperature(const std::vector<float>& temps)
-    {
-        if (temps.empty()) return;
-        float max_temp_f = *std::max_element(temps.begin(), temps.end());
-        // 限制为 0~255
-        uint8_t temp_byte = static_cast<uint8_t>(std::min(std::max(max_temp_f, 0.0f), 255.0f));
 
+    void sendMaxTemperatureByte(uint8_t temp_byte)
+    {
         uint8_t packet[6];
         packet[0] = 0xF5;      // 包头
         packet[1] = 0x05;      // 功能码
@@ -1406,24 +1591,59 @@ private:
         packet[4] = 0x00;      // CRC高字节（这里暂用0）
         packet[5] = 0x5F;      // 包尾
 
-        sendPacket(packet, sizeof(packet));
-        RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 4000, "Sent max temperature: %u", temp_byte);
+        if (sendPacket(packet, sizeof(packet))) {
+            RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 4000, "Sent max temperature: %u", temp_byte);
+        }
+    }
+
+    void sendMaxTemperature(const std::vector<float>& temps)
+    {
+        if (temps.empty()) return;
+        std::optional<float> max_temp_f;
+        for (float temp : temps) {
+            if (!std::isfinite(temp)) {
+                continue;
+            }
+            if (!max_temp_f || temp > *max_temp_f) {
+                max_temp_f = temp;
+            }
+        }
+        if (!max_temp_f) {
+            RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 4000,
+                                 "Skip max temperature upload: all motor temperatures are non-finite.");
+            return;
+        }
+        // 限制为 0~255
+        uint8_t temp_byte = static_cast<uint8_t>(std::min(std::max(*max_temp_f, 0.0f), 255.0f));
+        {
+            std::lock_guard<std::mutex> lock(upload_state_mutex_);
+            latest_max_temperature_ = temp_byte;
+        }
+        sendMaxTemperatureByte(temp_byte);
     }
 
     void sendPath(const nav_msgs::msg::Path::SharedPtr path_msg)
     {
-        if (path_msg->poses.empty()) return;
-
-        // 限制点数在 0-255 之间
-        uint8_t N = static_cast<uint8_t>(path_msg->poses.size());
-        if (path_msg->poses.size() > 255) {
-             RCLCPP_WARN(this->get_logger(), "Path has more than 255 points (%zu), truncating to 255.", path_msg->poses.size());
-             N = 255;
+        if (path_msg->poses.empty()) {
+            uint8_t packet[] = {0xF5, 0x04, 0x00, 0x00, 0x00, 0x5F};
+            if (sendPacket(packet, sizeof(packet))) {
+                logPacket("TX PATH_EMPTY", packet, sizeof(packet), this->get_logger());
+                RCLCPP_INFO(this->get_logger(), "Sent empty Path N=0");
+            }
+            return;
         }
+
+        const size_t total_points = path_msg->poses.size();
+        const size_t num_points = std::min<size_t>(total_points, 255);
+        if (total_points > num_points) {
+             RCLCPP_WARN(this->get_logger(), "Path has more than 255 points (%zu), sending latest 255.", total_points);
+        }
+        const uint8_t N = static_cast<uint8_t>(num_points);
+        const size_t start_idx = total_points > num_points ? total_points - num_points : 0;
         // 修正长度计算
         // 结构: Header(1) + Func(1) + Count(1) + Points(N*24) + CRC(2) + Tail(1)
         // data_len 在这里仅指 "Count + Points" 或者我们直接算总长，避免混淆
-        size_t points_data_len = N * 24; 
+        size_t points_data_len = num_points * 24; 
         size_t packet_len = 1 + 1 + 1 + points_data_len + 2 + 1; 
         
         std::vector<uint8_t> packet(packet_len, 0);
@@ -1433,8 +1653,8 @@ private:
         packet[idx++] = 0x04; // 功能码
         packet[idx++] = N;    // 点数量 (这是数据部分的第一个字节)
         // 写入轨迹点
-        for (int i = 0; i < N; ++i) {
-            const auto &pose_stamped = path_msg->poses[i];
+        for (size_t i = 0; i < num_points; ++i) {
+            const auto &pose_stamped = path_msg->poses[start_idx + i];
             double x = pose_stamped.pose.position.x;
             double y = pose_stamped.pose.position.y;
             double z = pose_stamped.pose.position.z;
@@ -1452,8 +1672,48 @@ private:
             RCLCPP_ERROR(this->get_logger(), "Packet length mismatch! Calculated: %zu, Written: %zu", packet_len, idx);
         }
 
-        sendPacket(packet);
-        RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 4000, "Sent Path with %u points", N);
+        if (sendPacket(packet)) {
+            RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 4000, "Sent Path with %u points", N);
+        }
+    }
+
+    void replayLatestUploadStateToClient()
+    {
+        sensor_msgs::msg::PointCloud2::SharedPtr acquired;
+        sensor_msgs::msg::PointCloud2::SharedPtr unacquired;
+        std::optional<uint8_t> progress;
+        nav_msgs::msg::Path::SharedPtr path;
+        std::optional<std::array<double, 3>> position;
+        std::optional<uint8_t> max_temperature;
+        {
+            std::lock_guard<std::mutex> lock(upload_state_mutex_);
+            acquired = latest_acquired_points_;
+            unacquired = latest_unacquired_points_;
+            progress = latest_progress_;
+            path = latest_path_;
+            position = latest_position_;
+            max_temperature = latest_max_temperature_;
+        }
+
+        RCLCPP_INFO(this->get_logger(), "Replaying latest APP upload state to new client");
+        if (acquired) {
+            sendPointCloud(acquired, 0x02);
+        }
+        if (unacquired) {
+            sendPointCloud(unacquired, 0x03);
+        }
+        if (progress) {
+            sendProgress(*progress);
+        }
+        if (path) {
+            sendPath(path);
+        }
+        if (position) {
+            sendPosition((*position)[0], (*position)[1], (*position)[2], true, false);
+        }
+        if (max_temperature) {
+            sendMaxTemperatureByte(*max_temperature);
+        }
     }
 
     std::vector<Point> parsePoints(const std::string& filename) {
@@ -1557,6 +1817,23 @@ private:
     bool has_heartbeat_ = false;
     bool app_control_session_active_ = false;
     std::shared_ptr<std::atomic<bool>> heartbeat_timeout_pending_;
+
+    std::mutex upload_state_mutex_;
+    std::optional<uint8_t> latest_progress_;
+    sensor_msgs::msg::PointCloud2::SharedPtr latest_acquired_points_;
+    sensor_msgs::msg::PointCloud2::SharedPtr latest_unacquired_points_;
+    nav_msgs::msg::Path::SharedPtr latest_path_;
+    std::optional<std::array<double, 3>> latest_position_;
+    std::optional<uint8_t> latest_max_temperature_;
+
+    std::mutex position_upload_mutex_;
+    double position_upload_hz_{5.0};
+    double position_upload_min_distance_{0.02};
+    rclcpp::Time last_position_sent_time_;
+    bool has_last_sent_position_{false};
+    double last_sent_x_{0.0};
+    double last_sent_y_{0.0};
+    double last_sent_z_{0.0};
 };
 
 int main(int argc, char * argv[])

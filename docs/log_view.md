@@ -295,3 +295,33 @@ find /home/test/logs/start_all_runs    -mindepth 1 -maxdepth 1 -type d -mtime +7
 - **`tcp_base_ctl_latest` / `start_all_latest`** 是脚本启动时主动 `ln -sfn` 切换的，反映"最近启动"，不是"最近成功启动"。如果脚本起来就崩了，软链照样跳过去——所以排错时如果发现 latest 里很空，去 `*_runs/` 看上一次。
 - **`tcp_base_ctl.log`** 现在只记录脚本框架（启动各节点的"启动 X / pid=Y"那种），**不再**包含 robot_tcp 的全量输出。robot_tcp 自己的输出独立写到 `robot_tcp.log`。
 - **`b2w_navigation.log`** 每次 start_all 启动会写到一个新的 RUN_LOG_DIR，**不再覆盖**前一次。历史可在 `start_all_runs/<RUN_ID>/` 下追溯。
+
+---
+
+## 十一、APP 上传协议日志排查
+
+主看 `/home/test/logs/tcp_base_ctl_latest/robot_tcp.log`。
+
+```bash
+# 空列表/清空帧：count=0 或 N=0
+grep -E "POINTCLOUD_EMPTY|ALL_POINTS_EMPTY|PATH_EMPTY|count=0|N=0" /home/test/logs/tcp_base_ctl_latest/robot_tcp.log
+
+# 位置上传：机器人端应过滤 NaN/Inf，不应在 TX POSITION 里看到 nan/inf
+grep -iE "nan|inf|Skip invalid position|TX POSITION" /home/test/logs/tcp_base_ctl_latest/robot_tcp.log | tail -80
+
+# 位置上传节流参数：position_upload_hz 默认 5.0，position_upload_min_distance 默认 0.02
+grep "TX POSITION" /home/test/logs/tcp_base_ctl_latest/robot_tcp.log | tail -40
+
+# 轨迹：超过 255 点时发送最新 255 点；空轨迹发送 N=0 清空帧
+grep -E "Sent Path|latest 255|PATH_EMPTY|N=0" /home/test/logs/tcp_base_ctl_latest/robot_tcp.log | tail -80
+
+# 新 TCP client 重连后应看到状态重放，再按 0x02/0x03/0x06/0x04/0x07/0x05 顺序补齐 APP UI
+grep -E "New client connected|Replaying latest APP upload state" /home/test/logs/tcp_base_ctl_latest/robot_tcp.log | tail -40
+```
+
+期望行为：
+
+- `0x01/0x02/0x03` 的 `count=0` 是合法清空点列表帧。
+- `0x04` 的 `N=0` 是合法清空轨迹帧；轨迹超过 255 点时发送最新 255 点。
+- `0x07` 不上传 NaN/Inf；无效 `/b2w_odom` 只在 TCP 边缘层过滤，不停止发布 ROS 话题 `/b2w_odom`。
+- 新 APP client 连接后会重放最近一次已完成点、未完成点、进度、轨迹、finite 位置和最高温度。

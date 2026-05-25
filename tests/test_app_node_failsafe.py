@@ -242,7 +242,7 @@ def test_heartbeat_timeout_uses_disconnect_protection_not_posture_buttons():
     match = re.search(r"void handleHeartbeatTimeoutProtection[\s\S]+?\n    bool requestTrigger", text)
     assert match is not None
     body = match.group(0)
-    assert "closeClientSocketLocked" in body
+    assert "shutdownClientSocketLocked" in body
     assert "publishSafetyStopMove" in body
     assert "handlePauseCommand" in body
     assert "StandDown" not in body
@@ -256,9 +256,10 @@ def test_send_failure_schedules_disconnect_auto_pause():
     assert match is not None
     body = match.group(0)
     assert "sendAllBytesLocked" in body
-    assert "closeClientSocketLocked" in body
+    assert "shutdown(client_sock_, SHUT_RDWR)" in body
+    assert "client_sock_ = -1" in body
     assert "scheduleDisconnectAutoPause" in body
-    assert body.find("closeClientSocketLocked") < body.find("scheduleDisconnectAutoPause")
+    assert body.find("shutdown(client_sock_, SHUT_RDWR)") < body.find("scheduleDisconnectAutoPause")
 
 def test_fail_safe_stop_requests_best_effort_arm_reset_before_killing_start_all():
     text = source()

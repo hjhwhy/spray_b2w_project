@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 project(robot_tcp)
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(rclcpp REQUIRED)
