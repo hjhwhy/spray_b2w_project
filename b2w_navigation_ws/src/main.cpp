@@ -94,8 +94,10 @@ public:
         this->declare_parameter("min_useful_vyaw", 0.4);
         this->declare_parameter("max_vyaw", 0.6);
         this->declare_parameter("waypoint_file_path", std::string("gnss_waypoints.txt"));
+        this->declare_parameter<std::string>("operation_mode", "spray");
         this->declare_parameter<bool>("arm_reset_on_pause", true);
         this->declare_parameter<double>("arm_safety_reset_timeout_seconds", 15.0);
+        this->declare_parameter<bool>("stop_on_completion", false);
 
         this->get_parameter("heading_alignment_threshold", heading_alignment_threshold_);
         this->get_parameter("moving_to_target_forward_speed", moving_to_target_forward_speed_);
@@ -114,9 +116,23 @@ public:
         this->get_parameter("min_useful_vyaw", min_useful_vyaw_);
         this->get_parameter("max_vyaw", max_vyaw_);
         this->get_parameter("waypoint_file_path", waypoint_file_path_);
+        this->get_parameter("operation_mode", operation_mode_);
         this->get_parameter("arm_reset_on_pause", arm_reset_on_pause_);
         this->get_parameter("arm_safety_reset_timeout_seconds", arm_safety_reset_timeout_seconds_);
+        this->get_parameter("stop_on_completion", stop_on_completion_);
         arm_safety_reset_request_time_ = this->now();
+
+        if (operation_mode_ == "dock_return") {
+            dock_return_mode_ = true;
+        } else if (operation_mode_ == "spray") {
+            dock_return_mode_ = false;
+        } else {
+            RCLCPP_FATAL(this->get_logger(),
+                "Invalid operation_mode='%s'. Expected 'spray' or 'dock_return'.",
+                operation_mode_.c_str());
+            rclcpp::shutdown();
+            return;
+        }
 
         if (!LoadWaypointsFromFile(waypoint_file_path_)) {
             RCLCPP_FATAL(this->get_logger(), "Failed to load waypoints. Check waypoint_file_path: %s", waypoint_file_path_.c_str());
@@ -141,6 +157,7 @@ public:
         RCLCPP_INFO(this->get_logger(), "min_useful_vyaw: %.3f", min_useful_vyaw_);
         RCLCPP_INFO(this->get_logger(), "max_vyaw: %.3f", max_vyaw_);
         RCLCPP_INFO(this->get_logger(), "waypoint_file_path: %s", waypoint_file_path_.c_str());
+        RCLCPP_INFO(this->get_logger(), "operation_mode: %s", operation_mode_.c_str());
         RCLCPP_INFO(this->get_logger(), "arm_reset_on_pause: %s", arm_reset_on_pause_ ? "true" : "false");
         RCLCPP_INFO(this->get_logger(), "arm_safety_reset_timeout_seconds: %.2f", arm_safety_reset_timeout_seconds_);
 
@@ -697,7 +714,7 @@ private:
                 break; 
             }
             if (distance_to_target <= arrive_distance_) {
-                if (distance_to_target < min_distance_for_arm_task_) {
+                if (!dock_return_mode_ && distance_to_target < min_distance_for_arm_task_) {
                     RCLCPP_WARN(this->get_logger(),
                         "Too close to waypoint for arm task (dist=%.4f m < %.4f m). Backing up to reposition.",
                         distance_to_target, min_distance_for_arm_task_);
@@ -714,10 +731,16 @@ private:
                 RCLCPP_INFO(this->get_logger(), "Actual Yaw:         %.2f°", current_yaw_ * 180.0 / M_PI);
                 RCLCPP_INFO(this->get_logger(), "Distance Error:     %.4f m", distance_to_target);
                 RCLCPP_INFO(this->get_logger(), "=========================================");
+                sport_client_.Move(0, 0, 0);
+                if (dock_return_mode_) {
+                    RCLCPP_INFO(this->get_logger(),
+                        "Dock-return waypoint reached; skipping arm/relay spray sequence.");
+                    state_ = GET_NEXT_WAYPOINT;
+                    return;
+                }
                 arm_wait_rtk_seq_ = rtk_update_seq_;
                 arm_rtk_buf_.clear();
                 state_ = WAITING_FOR_FRESH_RTK;
-                sport_client_.Move(0, 0, 0); 
                 return; 
             }
             double v_cmd = 0.0, yaw_cmd = 0.0 , desired_w = 0.0;
@@ -1004,7 +1027,15 @@ private:
         case FINISH_ALL_POINTS:
         {
             sport_client_.Move(0, 0, 0);
-            return; 
+            if (stop_on_completion_) {
+                RCLCPP_INFO(this->get_logger(),
+                    "All waypoints completed. stop_on_completion=true, shutting down.");
+                rclcpp::shutdown();
+                return;
+            }
+            RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 5000,
+                "All waypoints completed. Robot idle at final position.");
+            break;
         }
 
         }
@@ -1101,6 +1132,7 @@ private:
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr unacquired_pub_;
 
     std::string waypoint_file_path_;
+    std::string operation_mode_ = "spray";
     std::vector<Waypoint> waypoints_;
     size_t current_waypoint_index_ = 0;
 
@@ -1136,6 +1168,8 @@ private:
     bool moving_;
     bool paused_ = false;
     bool pause_stop_latched_ = false;
+    bool stop_on_completion_ = false;
+    bool dock_return_mode_ = false;
     double last_path_x_ = 0.0, last_path_y_ = 0.0;
     double current_yaw_ = NAN; 
 

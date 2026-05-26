@@ -1,23 +1,53 @@
 # launch/b2w_navigation.launch
 
 from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 import os
 from ament_index_python.packages import get_package_share_directory
 
+
 def generate_launch_description():
     # 获取包路径
-    pkg_share = get_package_share_directory('b2w_navigation_controller')  
+    pkg_share = get_package_share_directory('b2w_navigation_controller')
     params_file = os.path.join(pkg_share, 'config', 'b2w_controller_params.yaml')
 
+    waypoint_file_path = LaunchConfiguration('waypoint_file_path')
+    operation_mode = LaunchConfiguration('operation_mode')
+    stop_on_completion = LaunchConfiguration('stop_on_completion')
+
     return LaunchDescription([
+        DeclareLaunchArgument(
+            'waypoint_file_path',
+            default_value='gnss_waypoints.txt',
+            description='Waypoint file for b2w_nav_node. Use an absolute path in deployed scripts.',
+        ),
+        DeclareLaunchArgument(
+            'operation_mode',
+            default_value='spray',
+            description="Navigation task mode: 'spray' or 'dock_return'.",
+        ),
+        DeclareLaunchArgument(
+            'stop_on_completion',
+            default_value='false',
+            description='If true, b2w_nav_node exits after all waypoints are completed.',
+        ),
         Node(
             package='b2w_navigation_controller',
             executable='b2w_nav_node',
             name='b2w_nav_node',
             output='screen',
-            parameters=[params_file],  
-            arguments=['eth2'], 
+            parameters=[
+                params_file,
+                {
+                    'waypoint_file_path': waypoint_file_path,
+                    'operation_mode': operation_mode,
+                    'stop_on_completion': ParameterValue(stop_on_completion, value_type=bool),
+                },
+            ],
+            arguments=['eth2'],
             emulate_tty=True,
         ),
     ])

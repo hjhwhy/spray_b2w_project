@@ -423,24 +423,25 @@ private:
                 case 0x01:
                     cmd_str = "start";
                 {
-                    const int rc = system(
-                        "bash -c '"
-                        "if [ -f /tmp/start_all.pid ]; then "
-                        "pid=$(cat /tmp/start_all.pid); "
-                        "if [ -n \"$pid\" ] && kill -0 \"$pid\" 2>/dev/null; then "
-                        "echo start_all already running with pid \"$pid\"; "
-                        "exit 0; "
-                        "else "
-                        "rm -f /tmp/start_all.pid; "
-                        "fi; "
-                        "fi; "
-                        "setsid /home/test/start_all.sh &'");
+                    StartAllTarget target;
+                    if (findStartAllTarget(target)) {
+                        const auto mode = readStartAllMode().value_or("unknown");
+                        RCLCPP_WARN(this->get_logger(),
+                            "Start rejected: start_all already running, mode=%s, pid=%ld, pgid=%ld.",
+                            mode.c_str(), static_cast<long>(target.pid), static_cast<long>(target.pgid));
+                        return;
+                    }
+                    const int rc = system("bash -c 'setsid /home/test/start_all.sh --mode spray &'");
                     RCLCPP_INFO(this->get_logger(), "Start command system() returned %d", rc);
                     markAppControlSessionActive("start command");
                     break;
                 }
                 case 0x02:
                     cmd_str = "pause";
+                    if (readStartAllMode().value_or("") == "dock_return") {
+                        RCLCPP_WARN(this->get_logger(), "Pause rejected: dock_return mode only supports stop.");
+                        return;
+                    }
                     handlePauseCommand();
                     break;
                 case 0x03:
@@ -495,8 +496,39 @@ private:
             return;
         }
 
+        if (instruction_type == 0x0C) {
+            RCLCPP_INFO(this->get_logger(), "Received command: return to charging dock (0x0C)");
+
+            StartAllTarget target;
+            if (findStartAllTarget(target)) {
+                const auto mode = readStartAllMode().value_or("unknown");
+                RCLCPP_WARN(this->get_logger(),
+                    "Dock return rejected: start_all already running, mode=%s, pid=%ld, pgid=%ld. Stop current task first.",
+                    mode.c_str(), static_cast<long>(target.pid), static_cast<long>(target.pgid));
+                return;
+            }
+
+            constexpr const char *charging_file = "/home/test/gnss_charging.txt";
+            struct stat charging_stat {};
+            if (stat(charging_file, &charging_stat) != 0 || !S_ISREG(charging_stat.st_mode) || charging_stat.st_size <= 0 ||
+                access(charging_file, R_OK) != 0) {
+                RCLCPP_ERROR(this->get_logger(),
+                    "Dock return rejected: %s is not a readable non-empty regular file.", charging_file);
+                return;
+            }
+
+            const int rc = system("bash -c 'setsid /home/test/start_all.sh --mode dock_return &'");
+            RCLCPP_INFO(this->get_logger(), "Dock return start_all system() returned %d", rc);
+            markAppControlSessionActive("dock return command");
+            return;
+        }
+
         if (instruction_type == 0x10) {
             RCLCPP_INFO(this->get_logger(), "Received command: restart/resume (0x10)");
+            if (readStartAllMode().value_or("") == "dock_return") {
+                RCLCPP_WARN(this->get_logger(), "Restart rejected: dock_return mode only supports stop.");
+                return;
+            }
             if (requestTrigger(erase_emergency_stop_client_, "Erase emergency stop")) {
                 RCLCPP_INFO(this->get_logger(), "Restart/resume request accepted.");
             } else {
@@ -827,6 +859,22 @@ private:
         std::remove("/tmp/start_all.pid");
         std::remove("/tmp/start_all.pgid");
         std::remove("/tmp/start_all.ready");
+    }
+
+    std::optional<std::string> readStartAllMode() const
+    {
+        std::ifstream ready_file("/tmp/start_all.ready");
+        if (!ready_file.is_open()) {
+            return std::nullopt;
+        }
+        std::string line;
+        while (std::getline(ready_file, line)) {
+            constexpr const char *prefix = "mode=";
+            if (line.rfind(prefix, 0) == 0) {
+                return line.substr(std::strlen(prefix));
+            }
+        }
+        return std::nullopt;
     }
 
     void publishSafetyStopMove(const std::string &reason)

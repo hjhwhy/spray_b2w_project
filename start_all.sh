@@ -1,6 +1,41 @@
 #!/bin/bash
 
 ROBOT_HOME="${ROBOT_HOME:-/home/test}"
+MISSION_MODE="spray"
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --mode)
+            MISSION_MODE="${2:-}"
+            shift 2
+            ;;
+        --dock-return)
+            MISSION_MODE="dock_return"
+            shift
+            ;;
+        *)
+            echo "Unknown argument: $1" >&2
+            exit 2
+            ;;
+    esac
+done
+
+case "$MISSION_MODE" in
+    spray|dock_return) ;;
+    *)
+        echo "Invalid MISSION_MODE=$MISSION_MODE (expected spray or dock_return)" >&2
+        exit 2
+        ;;
+esac
+
+if [[ "$MISSION_MODE" == "dock_return" ]]; then
+    WAYPOINT_FILE="${ROBOT_HOME}/gnss_charging.txt"
+    STOP_ON_COMPLETION="true"
+else
+    WAYPOINT_FILE="${ROBOT_HOME}/gnss_waypoints.txt"
+    STOP_ON_COMPLETION="false"
+fi
+
 LOG_DIR="${ROBOT_HOME}/logs"
 RUN_ID="$(date '+%Y%m%d_%H%M%S')_$$"
 RUN_LOG_DIR="${LOG_DIR}/start_all_runs/${RUN_ID}"
@@ -14,6 +49,13 @@ ln -sfn "$RUN_LOG_DIR" "$LATEST_LOG_LINK"
 PID_FILE="/tmp/start_all.pid"
 PGID_FILE="/tmp/start_all.pgid"
 READY_FILE="/tmp/start_all.ready"
+LOCK_FILE="/tmp/start_all.lock"
+
+exec 9>"$LOCK_FILE"
+if ! flock -n 9; then
+    echo "start_all.sh 已有启动/运行实例持有锁：$LOCK_FILE"
+    exit 0
+fi
 
 owns_start_all_group() {
     local pid="$1"
@@ -48,6 +90,7 @@ if [ -f "$PID_FILE" ]; then
     rm -f "$PID_FILE"
 fi
 rm -f "$READY_FILE"
+printf 'state=starting\nmode=%s\nservice_ready=0\nprobe_ok=0\n' "$MISSION_MODE" > "$READY_FILE"
 
 # 处理上次进程组的残留（基于 PGID 文件，比按全局进程名 pkill -x 更精准；
 # 不会误杀手工调试启动的同名节点，也不会碰 tcp_base_ctl.sh 的 b2w_teleop_node / robot_tcp_node，
@@ -142,12 +185,15 @@ echo "ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-unset}"
 echo "RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-unset}"
 
 echo "================ 手动自动作业模式 ================"
-echo "当前脚本将直接启动喷涂主流程，即使 APP 故障也可独立运行。"
-echo "目标点文件: ${ROBOT_HOME}/gnss_waypoints.txt"
-if [ -f "${ROBOT_HOME}/gnss_waypoints.txt" ]; then
-    echo "目标点文件存在。"
+echo "当前脚本将直接启动 B2W 主流程，即使 APP 故障也可独立运行。"
+echo "任务模式: ${MISSION_MODE}"
+echo "目标点文件: ${WAYPOINT_FILE}"
+echo "完成后自动退出: ${STOP_ON_COMPLETION}"
+if [ -s "${WAYPOINT_FILE}" ]; then
+    echo "目标点文件存在且非空。"
 else
-    echo "警告：目标点文件不存在，主控可能无法正常读取任务点。"
+    echo "错误：目标点文件不存在或为空：${WAYPOINT_FILE}"
+    exit 1
 fi
 
 if pgrep -x robot_tcp_node >/dev/null 2>&1; then
@@ -179,8 +225,12 @@ else
 fi
 sleep 1
 
-echo "启动 b2w 主控节点"
-ros2 launch b2w_navigation_controller b2w_navigation.launch > "$NAV_LOG" 2>&1 &
+echo "启动 b2w 主控节点 (mode=${MISSION_MODE})"
+ros2 launch b2w_navigation_controller b2w_navigation.launch \
+    waypoint_file_path:="${WAYPOINT_FILE}" \
+    operation_mode:="${MISSION_MODE}" \
+    stop_on_completion:="${STOP_ON_COMPLETION}" \
+    > "$NAV_LOG" 2>&1 &
 NAV_PID=$!
 PIDS+=($!)
 sleep 1
@@ -243,13 +293,15 @@ fi
 
 echo "start_all 启动总耗时: $(( $(date +%s) - SCRIPT_START_TS ))s"
 if [ "$service_ready" -eq 1 ] && [ "$probe_ok" -eq 1 ]; then
-    printf 'state=ready\nservice_ready=1\nprobe_ok=1\n' > "$READY_FILE"
+    printf 'state=ready\nmode=%s\nservice_ready=1\nprobe_ok=1\n' "$MISSION_MODE" > "$READY_FILE"
     echo "所有节点已启动，pause/restart 服务已验证。"
 elif [ "$service_ready" -eq 1 ]; then
-    printf 'state=partial\nservice_ready=1\nprobe_ok=0\n' > "$READY_FILE"
+    printf 'state=partial\nmode=%s\nservice_ready=1\nprobe_ok=0\n' "$MISSION_MODE" > "$READY_FILE"
     echo "所有节点已启动，但 pause/restart 服务尚未验证通过。"
 else
-    printf 'state=discovery_pending\nservice_ready=0\nprobe_ok=0\n' > "$READY_FILE"
+    printf 'state=discovery_pending\nmode=%s\nservice_ready=0\nprobe_ok=0\n' "$MISSION_MODE" > "$READY_FILE"
     echo "所有节点已启动，但 emergency stop 服务尚未完成发现，pause/restart 可能暂不可用。"
 fi
-wait
+wait_status=0
+wait || wait_status=$?
+cleanup "$wait_status"
