@@ -120,7 +120,7 @@ journalctl -u tcp_base_ctl.service -f
 | `tf_broadcast_ws` | robot_tf_broadcaster | 发布静态 TF 树（B2W→Z1→Lidar→GNSS） |
 | `z1_move_ws` | z1_arm_controller_cpp | Z1 机械臂 ROS2 服务接口 |
 | `b2w_navigation_ws` | b2w_navigation_controller | B2W 导航、里程计、EKF 融合 |
-| `spray_path_planner_ws` | spray_path_planner | 读点文件、生成最短路径 |
+| `spray_path_planner_ws` | spray_path_planner | 服务类型定义（GetNextWaypoint.srv / SetStartPoint.srv，仅编译时依赖；运行时节点不再启动，路径逻辑已内联到 main.cpp） |
 | `rs585_ws` | rs485_node | Modbus RS485 继电器控制（喷枪） |
 | `robose_airy_ws` | rslidar_sdk | 旧 RS16 激光雷达驱动（保留但当前未自动启动） |
 | `livox_mid360_ws` | livox_ros_driver2 | MID-360 激光雷达驱动（已放入仓库，生产链路待接入） |
@@ -153,10 +153,12 @@ journalctl -u tcp_base_ctl.service -f
 | `b2w_navigation_ws / b2w_nav_node` | 发布 | `/motors_temperatures` | `std_msgs/msg/Float32MultiArray` | 电机温度数组 |
 | `b2w_navigation_ws / b2w_nav_node` | 发布 | `/b2w_odom` | `nav_msgs/msg/Odometry` | 主导航里程计输出 |
 | `b2w_navigation_ws / b2w_nav_node` | 发布 | `/b2w_path` | `nav_msgs/msg/Path` | 运动轨迹历史 |
+| `b2w_navigation_ws / b2w_nav_node` | 发布 | `/progress` | `std_msgs/msg/Byte` | 喷涂进度百分比（0-100），main.cpp 直接计算发布 |
 | `b2w_navigation_ws / b2w_nav_node` | 发布 | `/acquired_points` | `sensor_msgs/msg/PointCloud2` | 主导航根据当前 waypoint 状态发布已完成点云 |
 | `b2w_navigation_ws / b2w_nav_node` | 发布 | `/unacquired_points` | `sensor_msgs/msg/PointCloud2` | 主导航根据当前 waypoint 状态发布未完成点云 |
 | `b2w_navigation_ws / b2w_teleop_node` | 订阅 | `/joy` | `sensor_msgs/msg/Joy` | APP/遥控输入，直接转 Unitree 运动命令 |
-| `spray_path_planner_ws / spray_path_planner_node` | 发布 | `/progress` | `std_msgs/msg/Byte` | 当前实现实际发布 0-100，不是 0-255 |
+| `app_ws / remote_control_node` | 发布 | `/joy` | `sensor_msgs/msg/Joy` | APP 手动控制输入（axes: 0x04-0x09 方向量 → b2w_teleop_node 调用 SportClient::Move()；buttons: 0x0A StandDown, 0x0B StandUp；buttons[2] 已禁用，不再触发 Damp） |
+| `spray_path_planner_ws / spray_path_planner_node` | 发布 | `/progress` | `std_msgs/msg/Byte` | （已废弃，由 main.cpp 直接发布） |
 | `spray_path_planner_ws / spray_path_planner_node` | 发布 | `/acquired_points` | `sensor_msgs/msg/PointCloud2` | 已完成喷涂点云 |
 | `spray_path_planner_ws / spray_path_planner_node` | 发布 | `/unacquired_points` | `sensor_msgs/msg/PointCloud2` | 未完成喷涂点云 |
 | `z1_move_ws / z1_arm_controller` | 发布 | `/z1_complete` | `std_msgs/msg/Bool` | 机械臂动作/复位完成标志 |
@@ -176,8 +178,8 @@ journalctl -u tcp_base_ctl.service -f
 
 | 工作空间 / 节点 | 方向 | 服务名 | 类型 | 说明 |
 |---|---|---|---|---|
-| `spray_path_planner_ws / spray_path_planner_node` | 提供 | `/get_next_waypoint` | `spray_path_planner/srv/GetNextWaypoint` | 依次返回下一个喷涂点 |
-| `spray_path_planner_ws / spray_path_planner_node` | 提供 | `/set_start_point` | `spray_path_planner/srv/SetStartPoint` | 根据起点重排喷涂路径 |
+| `spray_path_planner_ws / spray_path_planner_node` | 提供 | `/get_next_waypoint` | `spray_path_planner/srv/GetNextWaypoint` | （仅编译时依赖；运行时 main.cpp 直接读取 gnss_waypoints.txt） |
+| `spray_path_planner_ws / spray_path_planner_node` | 提供 | `/set_start_point` | `spray_path_planner/srv/SetStartPoint` | （仅编译时依赖；运行时不再调用） |
 | `z1_move_ws / z1_arm_controller` | 提供 | `/z1_move_to_target` | `z1_arm_controller_cpp/srv/MoveArm` | 直接按目标位姿控制 Z1 |
 | `z1_move_ws / z1_arm_controller` | 提供 | `/z1_reset_arm` | `z1_arm_controller_cpp/srv/MoveArm` | 机械臂复位 |
 | `z1_move_ws / z1_arm_controller` | 提供 | `/z1_move_in_base_frame` | `z1_arm_controller_cpp/srv/MoveArmWithRPY` | 输入 `base_link` 坐标，内部转到 `z1_base` |
@@ -188,8 +190,6 @@ journalctl -u tcp_base_ctl.service -f
 | `b2w_navigation_ws / b2w_nav_node` | 提供 | `/erase_emergency_stop` | `std_srvs/srv/Trigger` | 解除暂停，恢复当前任务状态机 |
 | `app_ws / remote_control_node` | 调用 | `/emergency_stop` | `std_srvs/srv/Trigger` | APP 暂停时调用；调用前检查 `/tmp/start_all.ready` |
 | `app_ws / remote_control_node` | 调用 | `/erase_emergency_stop` | `std_srvs/srv/Trigger` | APP 恢复时调用；调用前检查 `/tmp/start_all.ready` |
-| `b2w_navigation_ws / b2w_nav_node` | 调用 | `/set_start_point` | `spray_path_planner/srv/SetStartPoint` | 初始化时设置起点 |
-| `b2w_navigation_ws / b2w_nav_node` | 调用 | `/get_next_waypoint` | `spray_path_planner/srv/GetNextWaypoint` | 获取下一个喷涂目标 |
 | `b2w_navigation_ws / b2w_nav_node` | 调用 | `/z1_move_to_target` | `z1_arm_controller_cpp/srv/MoveArm` | 调机械臂执行喷涂位姿 |
 | `b2w_navigation_ws / b2w_nav_node` | 调用 | `/z1_reset_arm` | `z1_arm_controller_cpp/srv/MoveArm` | 喷涂完成后复位 |
 | `b2w_navigation_ws / b2w_nav_node` | 调用 | `/trigger_valve_ch1` | `std_srvs/srv/Trigger` | 喷枪触发 |
@@ -208,6 +208,9 @@ journalctl -u tcp_base_ctl.service -f
 - 当前主导航 `b2w_navigation_ws/src/main.cpp` 订阅的是 `PoseStamped` 版本，因此运行主流程时必须启动 `rtk_nav_ws` 的 `ins_parser_node`。
 - `spray_path_planner` 当前 `/progress` 实际发布的是 `0~100` 百分比整数；如果 APP 协议仍按 `0~255` 处理，需要后续统一。
 - `/emergency_stop` 和 `/erase_emergency_stop` 由 `b2w_nav_node` 提供；`app_node.cpp` 作为客户端调用。若 `/tmp/start_all.ready` 不存在或未进入 `ready/partial`，APP 暂停/恢复会被拒绝，避免主控未就绪时误判成功。
+- `spray_path_planner` 节点在运行时不再启动；服务类型定义仍保留为编译时依赖（`b2w_navigation_ws` 的 CMakeLists.txt 和 package.xml 中 `find_package(spray_path_planner REQUIRED)`）。路径读取、点云发布、进度计算均在 `main.cpp` 内联完成。
+- `/joy` 话题由 `app_node.cpp` 发布（axes 承载方向控制 0x04-0x09，buttons 承载 StandDown/StandUp 0x0A/0x0B），`b2w_teleop_node` 订阅消费。
+- APP 端 `0xFF` 心跳仅用于应用层断联判断，不再触发 `Damp()`；`/joy.buttons[2]`（原 Damp 触发位）已禁用。
 
 ### 自定义服务消息类型定义
 
@@ -222,6 +225,7 @@ journalctl -u tcp_base_ctl.service -f
 - `/dev/ttyTHS2` — 司南 RTK 串口（波特率 115200，权限 777）
 - B2W 通信通过 DDS（Unitree SDK2），网卡见下方“网络与端口”。
 - Z1 机械臂 SDK、手动测试、零位恢复和故障排查统一见 `z1_move_ws/README.md`。
+- Z1 控制器负载参数（`z1_controller/config/config.xml`）：自 commit `935189a` 起负载从 `0.0kg` 调整为 `1.0kg`（喷枪等末端负载），影响机械臂动力学计算。
 - 导航大师配置： 4G配置中APN需要改成 internet，改完后能连上网
 
 ## 网络与端口
@@ -268,6 +272,17 @@ journalctl -u tcp_base_ctl.service -f
 - `start_all.sh` 只负责主任务 `b2w_navigation.launch`；基础节点由 `tcp_base_ctl.sh` 常驻维护
 - 喷涂点文件（如 `gnss_waypoints.txt`、`points_test_mikinwn.txt`）当前应使用与 `/epsg_position` 同框架的 EPSG:2100 + HEPOS 平面坐标；历史点文件可能来自经纬度离线转换。
 
+## 工具脚本
+
+| 脚本 | 用途 |
+|------|------|
+| `resettime.sh` | 快速设置系统时间（默认 2026 年），用法：`./resettime.sh -M-D [HH:MM:SS]` |
+| `install_fake_hwclock.sh` | 安装假硬件时钟，RTC 不稳定时保证重启后时间不跳回 1970 |
+| `record_gps_epsg_point.py` | RTK 录点链路分析脚本，将 GPGGA + /epsg_position 全链路写入 `gnss_waypoints_detail.txt` |
+| `simulate_gnss_serial.py` | GNSS 串口模拟器，用 PTY 回放 GPGGA 日志给 `ins_parser_node` |
+| `compute_fj_plane.py` | 丰疆平面坐标计算/转换工具（含 HEPOS 网格双线性插值） |
+| `rtk_nav_ws/fj_dynamic/improve/test-100/recore_spary_points.py` | 从 b2w_navigation.log 回录喷涂点坐标 |
+
 ## 关键源文件
 
 - `b2w_navigation_ws/src/main.cpp` — B2W 导航主控逻辑
@@ -286,19 +301,54 @@ journalctl -u tcp_base_ctl.service -f
 - `spray_path_planner_ws/config/path_planner.yaml` — 喷涂点文件路径
 - `rs585_ws/config/rs485_params.yaml` — RS485 通信参数
 - `gnss_driver_ws/config/gnss_params.yaml` — GNSS 驱动参数（端口、波特率、坐标系）
+- `rtk_nav_ws/config/ins_parser_params.yaml` — ins_parser 参数（串口、HEPOS 网格修正、GPGGA 日志）
 - `01-wifi-ap.yaml` — 机器人 WiFi AP 配置（Netplan，部署时热点设置）
 
 `b2w_controller_params.yaml` 关键参数：
 
 | 参数 | 节点 | 说明 |
 |---|---|---|
-| `moving_to_target_forward_speed` | `b2w_nav_node` | 自动作业前进速度 |
+| `moving_to_target_forward_speed` | `b2w_nav_node` | 自动作业前进速度 (m/s)，默认 `0.9` |
+| `heading_alignment_threshold` | `b2w_nav_node` | 航向对准阈值 (rad)，默认 `0.05`（约 3°） |
+| `z1_arm_target_pitch_deg` | `b2w_nav_node` | 机械臂末端目标 pitch 角度，默认 `84.0`（垂直向下约 83°） |
+| `arrive_distance` | `b2w_nav_node` | 到达目标点判定阈值 (m)，默认 `0.8` |
+| `min_distance_for_arm_task` | `b2w_nav_node` | 执行机械臂任务的最小距离 (m)，默认 `0.6` |
+| `obstacle_detection_range` | `b2w_nav_node` | 障碍物检测距离 (m)，默认 `1.2` |
+| `arm_offset_x` | `b2w_nav_node` | 机械臂底座相对 base_link 的 x 偏移 (m)，默认 `0.3487` |
+| `arm_target_comp_x` | `b2w_nav_node` | 喷涂目标前向补偿 (m)，默认 `0.015` |
 | `rtk_x_offset` | `b2w_nav_node` | RTK 天线相对 `base_link` 的 x 偏移，默认 `-0.4477` |
-| `z1_arm_target_pitch_deg` | `b2w_nav_node` | 机械臂末端目标 pitch 角度，默认 `90.0` |
-| `teleop_linear_x_speed` | `b2w_teleop_node` | APP 遥控前进/后退速度 |
-| `teleop_linear_y_speed` | `b2w_teleop_node` | APP 遥控左移/右移速度 |
-| `teleop_yaw_speed` | `b2w_teleop_node` | APP 遥控旋转角速度 |
-| `teleop_deadzone` | `b2w_teleop_node` | 遥控死区，低于该速度时发送 `StopMove()` |
+| `teleop_linear_x_speed` | `b2w_teleop_node` | APP 遥控前进/后退速度，默认 `0.8` |
+| `teleop_linear_y_speed` | `b2w_teleop_node` | APP 遥控左移/右移速度，默认 `0.5` |
+| `teleop_yaw_speed` | `b2w_teleop_node` | APP 遥控旋转角速度，默认 `0.5` |
+| `teleop_deadzone` | `b2w_teleop_node` | 遥控死区，低于该速度时发送 `StopMove()`，默认 `0.1` |
+
+以下参数在代码中通过 `declare_parameter` 声明（不在 YAML 中）：
+
+| 参数 | 节点 | 默认值 | 说明 |
+|------|------|--------|------|
+| `arm_safety_reset_timeout_seconds` | `b2w_nav_node` | 15.0 | 机械臂安全复位超时（秒） |
+| `heartbeat_timeout_seconds` | app_node | 3.5 | APP 心跳超时阈值（秒） |
+| `heartbeat_required_after_control` | app_node | true | 遥控后是否强制要求心跳 |
+
+## 测试
+
+`tests/` 目录包含 3 个 Python 静态验证脚本，不需要 ROS 环境即可运行：
+
+| 文件 | 验证内容 |
+|------|---------|
+| `test_app_node_failsafe.py` | pause fallback 逻辑、stop 进程组 kill、断联 StopMove、Damp 禁用 |
+| `test_app_upload_protocol.py` | APP 上传协议（状态同步、无效数据过滤） |
+| `test_b2w_navigation_arm_safety_reset.py` | arm_safety_reset 机制：IsArmRelatedState 覆盖 5 种状态、RequestArmSafetyReset 流程 |
+
+运行方式：
+```bash
+cd /home/oneko/projects/spray_b2w_robot_project_greek
+python3 tests/test_app_node_failsafe.py
+python3 tests/test_app_upload_protocol.py
+python3 tests/test_b2w_navigation_arm_safety_reset.py
+```
+
+测试直接读取 `.cpp` 源码，用正则匹配关键字符串和函数签名，不执行编译或 ROS 运行时。
 
 ## TCP 应用协议
 
@@ -354,7 +404,50 @@ APP ↔ 主控通过 TCP 长连接通信：
 - `0x04` ~ `0x09`：`app_node.cpp` 发布 `/joy.axes` 方向量，`b2w_teleop_node` 按 YAML 速度缩放后调用 `SportClient::Move()`。
 - `0x0A`、`0x0B`：`app_node.cpp` 发布 `/joy.buttons`，`b2w_teleop_node` 分别调用 `StandDown()`、`StandUp()`。
 - `0x10 restart/resume`：`app_node.cpp` 调用 `/erase_emergency_stop`，由 `b2w_nav_node` 解除暂停。
-- `0xFF heartbeat`：APP/遥控器每 1 秒下发一次心跳，用于应用层断联判断；不是姿态/急停阻尼指令。默认 `heartbeat_timeout_seconds=3.5`，`heartbeat_required_after_control=true`。
+- `0xFF heartbeat`：APP/遥控器每 1 秒下发一次心跳，用于应用层断联判断；不是姿态/急停阻尼指令。默认 `heartbeat_timeout_seconds=3.5`，`heartbeat_required_after_control=true`。断联后执行：关闭 socket → handlePauseCommand() → 优先 /emergency_stop → fallback StopMove + SIGTERM → 机械臂安全复位。不会触发 StandDown() 或 Damp()。
+- 0xFF 心跳不再触发 Damp()。b2w_teleop_node 已移除 buttons[2] 的 Damp 处理。
+- pause 和 stop 流程中，app_node 会额外通过 /joy 发布 StopMove 指令，并在必要时对 start_all 进程组做 fail-safe kill。
+- pause/stop/断联任一场景触发后，app_node 会请求 b2w_nav_node 执行机械臂安全复位（arm_safety_reset）。
+
+## 安全机制
+
+详细文档参见 `docs/app_control_disconnect_safety.md`。
+
+### 断联保护
+
+APP 心跳（0xFF）每 1 秒发送一次。`app_node.cpp` 以 `heartbeat_timeout_seconds`（默认 3.5s）为超时阈值。超时后：
+1. 关闭 TCP 客户端 socket
+2. 调用 `handlePauseCommand()`：优先尝试 `/emergency_stop` 服务
+3. 如果 `/emergency_stop` 服务不可达，fallback：发布 StopMove（通过 `/joy` 全零）+ 对 `start_all.sh` 进程组发送 SIGTERM
+4. 请求机械臂安全复位（如果处于 arm-related 状态）
+
+断联 **不会** 触发 `StandDown()` 或 `Damp()`（Damp 已全局禁用）。
+
+### pause 安全兜底
+
+APP 发送 `0x02 pause` → `handlePauseCommand()`：
+1. 先尝试调用 `/emergency_stop` 服务（由 `b2w_nav_node` 提供）
+2. 如果服务不可达（超时/节点未就绪），fallback：
+   - 发布 StopMove（通过 `/joy` 全零）
+   - 触发 `triggerStartAllFailSafeStop("pause fallback ...")` — 对 `start_all.sh` 进程组发送 SIGTERM
+3. 请求机械臂安全复位
+
+### 机械臂安全复位（arm_safety_reset）
+
+在 `b2w_navigation_ws/src/main.cpp` 中实现：
+- `IsArmRelatedState()` 判断当前状态是否为以下 5 种之一：
+  EXECUTING_ARM_TASK / TRIGGERING_RELAY / RESETTING_ARM / RETRYING_ARM_AFTER_FORWARD / RETRYING_ARM_AFTER_BACKUP
+- `RequestArmSafetyReset(reason)` 在 pause/stop/断联时被调用
+- 超时由 `arm_safety_reset_timeout_seconds` 控制（默认 15s，在 main.cpp 中通过 `declare_parameter` 声明）
+- 复位动作：调用 `/z1_reset_arm` 服务
+
+### Damp 指令禁用
+
+- `app_node.cpp`：心跳 0xFF 不再发布 `/joy.buttons[2]`
+- `b2w_teleop.cpp`：不再处理 buttons[2] 的 Damp 调用
+- 所有断联/暂停场景使用 `StopMove()` 而非 `Damp()`
+
+安全相关参数详见「配置文件」章节。
 
 ## 坐标系说明
 
@@ -428,3 +521,38 @@ APP ↔ 主控通过 TCP 长连接通信：
 - `rtk_nav_ws/fj_dynamic/GEOID_GR.GRD` — 大地水准面格网（高程修正，当前未接入）
 - `rtk_nav_ws/fj_dynamic/parsms.json` — 丰疆参数文件
 - `rtk_nav_ws/include/hepos_grid_corrector.hpp` — 双线性插值实现，被 `ins_parser.cpp` 与 `pub_rtk_save_pt_node.cpp` 共用
+
+## 现场测试数据
+
+### 101 点喷涂精度测试
+
+| 日期 | 目录 | 内容 |
+|------|------|------|
+| 5-13 | `rtk_nav_ws/fj_dynamic/improve/test-100/5-13/` | 分析报告、落点坐标 CSV、误差统计 |
+| 5-14 | `rtk_nav_ws/fj_dynamic/improve/test-100/5-14/` | 分析报告 + 完整导航日志 |
+
+目录结构（以 5-14 为例）：
+- `analysis.md` — 精度分析报告
+- `analysis_points.csv` — 机器狗落点
+- `target_fj_101.csv` — 丰疆目标点
+- `arm_trigger_101.csv` — 机械臂触发记录
+- `spacing_error.csv` — 间距误差
+- `sn/start_all_latest/b2w_navigation.log` — 导航日志
+
+回录工具见「工具脚本」章节中的 `recore_spary_points.py`，目录说明见 `test-100/README.md`。
+
+## 文档导航
+
+| 文档 | 内容 |
+|------|------|
+| `docs/app_control_disconnect_safety.md` | APP 控制、断联与保护逻辑完整说明（必读） |
+| `docs/log_view.md` | 日志查看指南：架构、路径、常用 tail 命令 |
+| `docs/network_topology.md` | 网络拓扑实测（5-8）、换口故障复盘、MAC/IP 对照 |
+| `docs/hermes_usage_guide.md` | Hermes Agent 在本仓库的使用说明 |
+| `docs/mid360_lidar_migration.md` | MID-360 激光雷达迁移方案 |
+| `docs/喷涂机器人通信协议05-25.md` | 喷涂机器人完整通信协议（2026-05-25 更新版） |
+| `docs/source_compare_5-19.md` | 机器备份 vs 当前项目源码对比报告 |
+| `dog_logs/5-22/upper_computer_protocol_audit_5-22.md` | 上位机通信协议三方核对报告 |
+| `rtk_nav_ws/issue.md` | HEPOS 5 点验证报告：PROJ default vs HEPOS-correct 对比 |
+| `rtk_nav_ws/fj_dynamic/improve/precision_roadmap.md` | B2W 喷涂精度提升路线图（目标 3 cm） |
+| `z1_move_ws/README.md` | Z1 机械臂 SDK、手动测试、零位恢复、故障排查 |
