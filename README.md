@@ -1,6 +1,6 @@
-# CLAUDE.md
+# 自主喷涂机器人项目（希腊）
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+本文件既是项目 README，也作为 Claude Code 等 AI 编码代理的仓库上下文指南。
 
 ## 项目简介
 
