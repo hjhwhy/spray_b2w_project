@@ -689,7 +689,7 @@ tail -F /home/test/logs/start_all_latest/b2w_navigation.log
 - **本项目内**：
   - `logs/5-6/test_logs/5-6.md`：5-6 实验完整报告（误差 ①②③④⑤ 拆解、链路一致性验证）
   - `logs/5-7/ana.md`：**5-7 实验报告**（test2 同点重测、test4 8 点公共点、test5 新点验证）
-  - `CLAUDE.md` "坐标数据变化链路"章节：完整 INS → PROJ → HEPOS → 发布流程
+  - `README.md` "坐标数据变化链路"章节：完整 INS → PROJ → HEPOS → 发布流程
   - `rtk_nav_ws/issue.md`：HEPOS 5 点验证报告
   - `b2w_navigation_ws/config/b2w_controller_params.yaml`：当前所有可调参数
   - `b2w_navigation_ws/src/main.cpp`：导航主控源码（state machine 在 line 536, 600-660）

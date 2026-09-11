@@ -199,7 +199,7 @@ frame_id = 'lidar_link'
 
 相关文件：
 
-- `CLAUDE.md`
+- `README.md`
 - `livox_mid360_ws/src/编译和运行命令.txt`
 
 需要更新：
@@ -370,7 +370,7 @@ journalctl -u tcp_base_ctl.service -f
 3. 修改 `tf_broadcast_ws/urdf/my_robot.urdf` 的 `base_to_lidar` 外参。
 4. 用 RViz 验证方向，确认前方为 `+X`、左方为 `+Y`。
 5. 将 MID-360 启动加入 `tcp_base_ctl.sh`。
-6. 更新 `CLAUDE.md` 和部署说明。
+6. 更新 `README.md` 和部署说明。
 7. 再接入自动作业流程。
 
 ## 7. 当前暂不建议直接修改的地方
