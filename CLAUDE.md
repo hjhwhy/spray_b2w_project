@@ -548,7 +548,6 @@ APP 发送 `0x02 pause` → `handlePauseCommand()`：
 | `docs/log_view.md` | 日志查看指南：架构、路径、常用 tail 命令 |
 | `docs/mid360_lidar_migration.md` | MID-360 激光雷达迁移方案 |
 | `docs/喷涂机器人通信协议05-25.md` | 喷涂机器人完整通信协议（2026-05-25 更新版） |
-| `docs/source_compare_5-19.md` | 机器备份 vs 当前项目源码对比报告 |
 | `dog_logs/5-22/upper_computer_protocol_audit_5-22.md` | 上位机通信协议三方核对报告 |
 | `rtk_nav_ws/issue.md` | HEPOS 5 点验证报告：PROJ default vs HEPOS-correct 对比 |
 | `rtk_nav_ws/fj_dynamic/improve/precision_roadmap.md` | B2W 喷涂精度提升路线图（目标 3 cm） |
