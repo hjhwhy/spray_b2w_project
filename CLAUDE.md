@@ -244,13 +244,12 @@ journalctl -u tcp_base_ctl.service -f
 | RSLidar 备用配置（双雷达组播）| 主机 `10.21.31.100` | — | 组播组 `224.10.10.201/202` | MSOP `6691/6692`、DIFOP `7781/7782` | `robose_airy_ws/src/rslidar_sdk/config/config_trans.yaml` |
 | `eth0` | DOWN | `192.168.1.102/24`（残留配置）| — | — | NM `Wired connection 1`，物理无线，无效 |
 
-完整拓扑图、ARP 证据和换口故障复盘见 `docs/network_topology.md`。
 
 注意事项：
 
 - **网卡 IP 的真实信源是 `/etc/NetworkManager/system-connections/Wired connection N.nmconnection`，不是 netplan**。netplan 里只有 `wlan0`，所有 eth* 都靠 NetworkManager 维护静态 IP。
 - **狗本体上多个 RJ45 槽中只有一个内部走线接通 DDS**。5-8 现场把网线从狗端有效槽换到另一个槽，整条链路在狗那一头就断了，和 IPC 端用什么接口名无关。狗身上"对外 DDS 槽"是固定的，**不要换槽**；排查链路先在狗端拔插测 `ethtool eth2 \| grep "Link detected"`。
-- **NetworkManager 用 `interface-name=ethN` 把配置绑到接口名而不是 MAC**——这是日后**改 IPC 端**接口名（如把 `eth2` 改 `eth1`）时会撞的独立坑：eth1 仍只挂 122.x 段，狗的 123.x 段不会跟着搬过去。**与 5-8 故障无关**，但作为通用警示保留。换口正确做法见 `docs/network_topology.md` §5。
+- **NetworkManager 用 `interface-name=ethN` 把配置绑到接口名而不是 MAC**——这是日后**改 IPC 端**接口名（如把 `eth2` 改 `eth1`）时会撞的独立坑：eth1 仍只挂 122.x 段，狗的 123.x 段不会跟着搬过去。**与 5-8 故障无关**，但作为通用警示保留。
 - `b2w_nav_node` / `b2w_teleop_node` 二进制必须带 `cap_net_raw+ep`，否则无法打开 `eth2`。当前 `tcp_base_ctl.service` 的 `ExecStartPre` 会自动给 `b2w_teleop_node` 设置权限；`b2w_nav_node` 手动编译/部署后需要单独确认或执行：
 
   ```bash
@@ -547,8 +546,6 @@ APP 发送 `0x02 pause` → `handlePauseCommand()`：
 |------|------|
 | `docs/app_control_disconnect_safety.md` | APP 控制、断联与保护逻辑完整说明（必读） |
 | `docs/log_view.md` | 日志查看指南：架构、路径、常用 tail 命令 |
-| `docs/network_topology.md` | 网络拓扑实测（5-8）、换口故障复盘、MAC/IP 对照 |
-| `docs/hermes_usage_guide.md` | Hermes Agent 在本仓库的使用说明 |
 | `docs/mid360_lidar_migration.md` | MID-360 激光雷达迁移方案 |
 | `docs/喷涂机器人通信协议05-25.md` | 喷涂机器人完整通信协议（2026-05-25 更新版） |
 | `docs/source_compare_5-19.md` | 机器备份 vs 当前项目源码对比报告 |
