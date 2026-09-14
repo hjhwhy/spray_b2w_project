@@ -10,6 +10,11 @@
 #include <chrono>
 #include <mutex>
 #include <algorithm> // for trim
+#include <cstdlib>
+#include <ctime>
+#include <filesystem>
+#include <fstream>
+#include <iomanip>
 
 // Linux 串口相关头文件
 #include <termios.h>
@@ -23,6 +28,8 @@
 
 // PROJ 用于 EPSG 投影转换
 #include <proj.h>
+
+#include "hepos_grid_corrector.hpp"
 
 // TF2 用于 欧拉角转四元数
 #include <tf2/LinearMath/Quaternion.h>
@@ -120,10 +127,53 @@ public:
         this->declare_parameter<std::string>("port", "/dev/ttyUSB0");
         this->declare_parameter<int>("baudrate", 115200);
         this->declare_parameter<bool>("use_epsg_crs_datum", true);
+        // EPSG:2100 base transform mode:
+        //   "proj_epsg2100"    : PROJ/EPSG database operation. This is the mode that matches your HEPOS validation table.
+        //   "fengjiang_7param" : explicit 7-parameter Helmert from the Fengjiang parameter JSON, then TM87 projection.
+        this->declare_parameter<std::string>("epsg2100_transform_mode", "proj_epsg2100");
+        this->declare_parameter<double>("hepos_helmert_dx", 203.437);
+        this->declare_parameter<double>("hepos_helmert_dy", -73.461);
+        this->declare_parameter<double>("hepos_helmert_dz", -243.594);
+        this->declare_parameter<double>("hepos_helmert_rx_arcsec", -0.17);
+        this->declare_parameter<double>("hepos_helmert_ry_arcsec", -0.06);
+        this->declare_parameter<double>("hepos_helmert_rz_arcsec", -0.151);
+        this->declare_parameter<double>("hepos_helmert_scale_ppm", 0.0);
+        this->declare_parameter<std::string>("hepos_helmert_convention", "position_vector");
+        this->declare_parameter<bool>("use_hepos_grid_correction", false);
+        this->declare_parameter<std::string>("hepos_e_grid_path", "/home/test/rtk_nav_ws/fj_dynamic/dE_2km_V1-0.egrd");
+        this->declare_parameter<std::string>("hepos_n_grid_path", "/home/test/rtk_nav_ws/fj_dynamic/dN_2km_V1-0.ngrd");
+        this->declare_parameter<double>("hepos_grid_spacing_m", 2000.0);
+        this->declare_parameter<double>("hepos_grid_origin_x", -64400.0);
+        this->declare_parameter<double>("hepos_grid_origin_y", 3840000.0);
+        this->declare_parameter<bool>("hepos_grid_x_increases_east", true);
+        this->declare_parameter<bool>("hepos_grid_y_increases_north", true);
+        this->declare_parameter<bool>("hepos_grid_value_in_cm", true);
+        this->declare_parameter<bool>("use_hepos_local_offset_fallback", false);
+        this->declare_parameter<double>("hepos_local_offset_e", 0.0);
+        this->declare_parameter<double>("hepos_local_offset_n", 0.0);
+        this->declare_parameter<bool>("print_gpgga_console", true);
+        this->declare_parameter<bool>("print_all_gpgga_console", true);
+        this->declare_parameter<int>("print_gpgga_interval", 5);
+        this->declare_parameter<std::string>("gpgga_raw_log_dir", default_log_dir());
 
         std::string port = this->get_parameter("port").as_string();
         int baudrate = this->get_parameter("baudrate").as_int();
         use_epsg_crs_datum_ = this->get_parameter("use_epsg_crs_datum").as_bool();
+        epsg2100_transform_mode_ = this->get_parameter("epsg2100_transform_mode").as_string();
+        hepos_helmert_dx_ = this->get_parameter("hepos_helmert_dx").as_double();
+        hepos_helmert_dy_ = this->get_parameter("hepos_helmert_dy").as_double();
+        hepos_helmert_dz_ = this->get_parameter("hepos_helmert_dz").as_double();
+        hepos_helmert_rx_arcsec_ = this->get_parameter("hepos_helmert_rx_arcsec").as_double();
+        hepos_helmert_ry_arcsec_ = this->get_parameter("hepos_helmert_ry_arcsec").as_double();
+        hepos_helmert_rz_arcsec_ = this->get_parameter("hepos_helmert_rz_arcsec").as_double();
+        hepos_helmert_scale_ppm_ = this->get_parameter("hepos_helmert_scale_ppm").as_double();
+        hepos_helmert_convention_ = this->get_parameter("hepos_helmert_convention").as_string();
+        use_hepos_grid_correction_ = this->get_parameter("use_hepos_grid_correction").as_bool();
+        print_gpgga_console_ = this->get_parameter("print_gpgga_console").as_bool();
+        print_all_gpgga_console_ = this->get_parameter("print_all_gpgga_console").as_bool();
+        const int64_t print_gpgga_interval_param = this->get_parameter("print_gpgga_interval").as_int();
+        print_gpgga_interval_ = static_cast<int>(std::max<int64_t>(1, print_gpgga_interval_param));
+        gpgga_raw_log_dir_ = this->get_parameter("gpgga_raw_log_dir").as_string();
 
         pub_fix_ = this->create_publisher<geometry_msgs::msg::PointStamped>("fix", 10);
         utm_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("utm_fix", 10);
@@ -132,7 +182,35 @@ public:
 
         RCLCPP_INFO(this->get_logger(), "=== INS Parser Node Started ===");
         RCLCPP_INFO(this->get_logger(), "Port: %s, Baud: %d", port.c_str(), baudrate);
+        RCLCPP_INFO(this->get_logger(), "use_epsg_crs_datum: %s", use_epsg_crs_datum_ ? "true" : "false");
+        RCLCPP_INFO(this->get_logger(), "epsg2100_transform_mode: %s", epsg2100_transform_mode_.c_str());
+        RCLCPP_INFO(this->get_logger(), "HEPOS/Fengjiang Helmert: dx=%.3f dy=%.3f dz=%.3f rx=%.6f ry=%.6f rz=%.6f s=%.6f convention=%s",
+                    hepos_helmert_dx_, hepos_helmert_dy_, hepos_helmert_dz_,
+                    hepos_helmert_rx_arcsec_, hepos_helmert_ry_arcsec_, hepos_helmert_rz_arcsec_,
+                    hepos_helmert_scale_ppm_, hepos_helmert_convention_.c_str());
+        RCLCPP_INFO(this->get_logger(), "use_hepos_grid_correction: %s", use_hepos_grid_correction_ ? "true" : "false");
+        RCLCPP_INFO(this->get_logger(), "print_gpgga_console: %s", print_gpgga_console_ ? "true" : "false");
+        RCLCPP_INFO(this->get_logger(), "print_all_gpgga_console: %s", print_all_gpgga_console_ ? "true" : "false");
+        RCLCPP_INFO(this->get_logger(), "print_gpgga_interval: %d", print_gpgga_interval_);
+        RCLCPP_INFO(this->get_logger(), "GPGGA raw file logging is always enabled.");
         RCLCPP_INFO(this->get_logger(), "Waiting for $GPGGA and #HEADINGA messages...");
+        open_gpgga_raw_log();
+
+        if (use_hepos_grid_correction_) {
+            HeposGridCorrector::Params hepos_params;
+            hepos_params.e_grid_path = this->get_parameter("hepos_e_grid_path").as_string();
+            hepos_params.n_grid_path = this->get_parameter("hepos_n_grid_path").as_string();
+            hepos_params.grid_spacing_m = this->get_parameter("hepos_grid_spacing_m").as_double();
+            hepos_params.origin_x = this->get_parameter("hepos_grid_origin_x").as_double();
+            hepos_params.origin_y = this->get_parameter("hepos_grid_origin_y").as_double();
+            hepos_params.x_increases_east = this->get_parameter("hepos_grid_x_increases_east").as_bool();
+            hepos_params.y_increases_north = this->get_parameter("hepos_grid_y_increases_north").as_bool();
+            hepos_params.grid_value_in_cm = this->get_parameter("hepos_grid_value_in_cm").as_bool();
+            hepos_params.use_local_offset_fallback = this->get_parameter("use_hepos_local_offset_fallback").as_bool();
+            hepos_params.local_offset_e = this->get_parameter("hepos_local_offset_e").as_double();
+            hepos_params.local_offset_n = this->get_parameter("hepos_local_offset_n").as_double();
+            hepos_grid_.load(hepos_params, this->get_logger());
+        }
 
         if (!serial_.open(port, baudrate)) {
             RCLCPP_ERROR(this->get_logger(), "Failed to open serial port. Exiting.");
@@ -201,9 +279,11 @@ private:
 
     void parse_gpgga(const std::string& line) {
         gpgga_count_++;
-        if (gpgga_count_ <= 5) {
-             RCLCPP_INFO(this->get_logger(), "[Raw GPGGA] %s", line.c_str());
+        const bool should_print_gpgga = should_print_gpgga_console();
+        if (should_print_gpgga) {
+             RCLCPP_INFO(this->get_logger(), "[Raw GPGGA #%d] %s", gpgga_count_, line.c_str());
         }
+        write_gpgga_log("RAW", line);
 
         std::string data_part = line;
         size_t star_pos = data_part.find('*');
@@ -215,7 +295,10 @@ private:
         
         // GPGGA 最少需要 10 个字段 (Index 0-9)
         if (fields.size() < 10) {
-            if (gpgga_count_ <= 5) RCLCPP_WARN(this->get_logger(), "GPGGA: Too few fields (%zu)", fields.size());
+            if (should_print_gpgga) {
+                RCLCPP_WARN(this->get_logger(), "GPGGA: Too few fields (%zu)", fields.size());
+            }
+            write_gpgga_log("WARN", "Too few fields: " + std::to_string(fields.size()));
             return;
         }
 
@@ -265,9 +348,14 @@ private:
                 }
             }
 
-            if (gpgga_count_ <= 5 || (gpgga_count_ % 50 == 0)) {
-                RCLCPP_INFO(this->get_logger(), "GPGGA Parsed: Qual=%d, Lat=%.6f, Lon=%.6f, Alt=%.2f", 
-                            current_data.gps_qual, current_data.lat, current_data.lon, current_data.alt);
+            std::ostringstream parsed_oss;
+            parsed_oss << "Qual=" << current_data.gps_qual
+                       << ", Lat=" << std::fixed << std::setprecision(9) << current_data.lat
+                       << ", Lon=" << std::fixed << std::setprecision(9) << current_data.lon
+                       << ", Alt=" << std::fixed << std::setprecision(3) << current_data.alt;
+            write_gpgga_log("PARSED", parsed_oss.str());
+            if (should_print_gpgga) {
+                RCLCPP_INFO(this->get_logger(), "GPGGA Parsed #%d: %s", gpgga_count_, parsed_oss.str().c_str());
             }
 
             // 如果只有 GPGGA 来了，也发布一下 fix 话题用于调试
@@ -277,12 +365,78 @@ private:
             }
 
         } catch (const std::exception& e) {
-            RCLCPP_ERROR_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "GPGGA Parse Exception: %s", e.what());
-            if (fields.size() > 6) {
+            write_gpgga_log("ERROR", std::string("Parse exception: ") + e.what());
+            if (should_print_gpgga) {
+                RCLCPP_ERROR(this->get_logger(), "GPGGA Parse Exception: %s", e.what());
+            }
+            if (should_print_gpgga && fields.size() > 6) {
                 RCLCPP_ERROR(this->get_logger(), "Fields around quality: [%s], [%s], [%s]", 
                              fields[5].c_str(), fields[6].c_str(), fields[7].c_str());
             }
         }
+    }
+
+    bool should_print_gpgga_console() const {
+        if (!print_gpgga_console_) {
+            return false;
+        }
+        if (print_all_gpgga_console_) {
+            return true;
+        }
+        return gpgga_count_ == 1 || (gpgga_count_ % print_gpgga_interval_ == 0);
+    }
+
+    std::string default_log_dir() const {
+        const char *home_env = std::getenv("HOME");
+        const std::string home = home_env && home_env[0] != '\0' ? home_env : "/home/test";
+        return home + "/logs/ins_parser_runs";
+    }
+
+    std::string run_timestamp() const {
+        const std::time_t now = std::time(nullptr);
+        std::tm tm_buf{};
+        localtime_r(&now, &tm_buf);
+        std::ostringstream oss;
+        oss << std::put_time(&tm_buf, "%Y%m%d_%H%M%S") << "_" << getpid();
+        return oss.str();
+    }
+
+    std::string log_timestamp() const {
+        const std::time_t now = std::time(nullptr);
+        std::tm tm_buf{};
+        localtime_r(&now, &tm_buf);
+        std::ostringstream oss;
+        oss << std::put_time(&tm_buf, "%F %T");
+        return oss.str();
+    }
+
+    void open_gpgga_raw_log() {
+        try {
+            std::filesystem::create_directories(gpgga_raw_log_dir_);
+            gpgga_raw_log_path_ = gpgga_raw_log_dir_ + "/gpgga_raw_" + run_timestamp() + ".log";
+            gpgga_raw_log_.open(gpgga_raw_log_path_, std::ios::out | std::ios::app);
+            if (!gpgga_raw_log_.is_open()) {
+                RCLCPP_ERROR(this->get_logger(), "Failed to open GPGGA raw log: %s", gpgga_raw_log_path_.c_str());
+                return;
+            }
+            gpgga_raw_log_ << "=== ins_parser GPGGA raw log started at "
+                           << log_timestamp() << " ===\n";
+            gpgga_raw_log_.flush();
+            RCLCPP_INFO(this->get_logger(), "GPGGA raw log: %s", gpgga_raw_log_path_.c_str());
+        } catch (const std::exception& e) {
+            RCLCPP_ERROR(this->get_logger(), "Failed to initialize GPGGA raw log: %s", e.what());
+        }
+    }
+
+    void write_gpgga_log(const std::string& tag, const std::string& text) {
+        if (!gpgga_raw_log_.is_open()) {
+            return;
+        }
+        gpgga_raw_log_ << "[" << log_timestamp() << "] "
+                       << "[" << tag << "] "
+                       << "#" << gpgga_count_ << " "
+                       << text << "\n";
+        gpgga_raw_log_.flush();
     }
 
     void parse_headinga(const std::string& line) {
@@ -501,7 +655,7 @@ private:
 
             utm_pub_->publish(std::move(msg_utm));
 
-            if (debug_log_count % 20 == 0) {
+            if (debug_log_count % 10 == 0) {
                 RCLCPP_INFO(this->get_logger(), ">>> SUCCESS: Published UTM Pose. Lat=%.6f, Lon=%.6f, Yaw=%.2f (ROS: %.2f)", 
                             gnss_data_.lat, gnss_data_.lon, gnss_data_.yaw_deg, yaw_ros_deg);
             }
@@ -525,36 +679,38 @@ private:
             return;
         }
 
-        PJ *P = nullptr;
-        if (use_epsg_crs_datum_) {
-            P = proj_create_crs_to_crs(C, "EPSG:4326", "EPSG:2100", nullptr);
-        } else {
-            P = proj_create(C,
-                "+proj=tmerc "
-                "+lat_0=0 "
-                "+lon_0=24 "
-                "+k=0.9996 "
-                "+x_0=500000 "
-                "+y_0=0 "
-                "+ellps=GRS80 "
-                "+units=m "
-                "+no_defs"
-            );
-        }
+        bool projection_accepts_lon_lat_degrees = true;
+        PJ *P = create_epsg2100_transform(C, projection_accepts_lon_lat_degrees);
 
         if (!P) {
-            RCLCPP_ERROR_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "Failed to create EPSG projection");
+            RCLCPP_ERROR_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "Failed to create EPSG:2100 projection/pipeline");
             proj_context_destroy(C);
             return;
         }
 
-        P = proj_normalize_for_visualization(C, P);
-
         PJ_COORD coord = proj_coord(gnss_data_.lon, gnss_data_.lat, gnss_data_.alt, 0);
         coord = proj_trans(P, PJ_FWD, coord);
 
-        double epsg_x = coord.xy.x;
-        double epsg_y = coord.xy.y;
+        const double epsg_x_proj = coord.xy.x;
+        const double epsg_y_proj = coord.xy.y;
+        double epsg_x = epsg_x_proj;
+        double epsg_y = epsg_y_proj;
+        double tm07_x = epsg_x_proj;
+        double tm07_y = epsg_y_proj;
+        bool tm07_ok = project_to_tm07(C, gnss_data_.lon, gnss_data_.lat, gnss_data_.alt, tm07_x, tm07_y);
+        HeposGridCorrector::CorrectionResult hepos_result;
+        if (use_hepos_grid_correction_) {
+            if (!tm07_ok) {
+                RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000,
+                    "HEPOS grid correction requested but TM07 projection failed; fallback will be used if configured.");
+            }
+            // HEPOS dE/dN grid correction is indexed by EPSG:2100 projected E/N.
+            // TM07 is still computed and printed only for diagnostic comparison.
+            if (!hepos_grid_.correct_with_result(epsg_x, epsg_y, epsg_x_proj, epsg_y_proj, hepos_result)) {
+                RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000,
+                    "HEPOS grid correction requested but current EPSG:2100 point is outside the grid and no fallback is available.");
+            }
+        }
 
         auto msg = std::make_unique<geometry_msgs::msg::PoseStamped>();
         msg->header.stamp = gnss_data_.stamp;
@@ -582,9 +738,23 @@ private:
         epsg_pub_->publish(std::move(msg));
 
         static int epsg_log_count = 0;
-        if (++epsg_log_count % 20 == 0) {
-            RCLCPP_INFO(this->get_logger(), "EPSG Pose: x=%.3f, y=%.3f, yaw=%.2f",
-                        epsg_x, epsg_y, yaw_ros_deg);
+        if (++epsg_log_count % 2 == 0) {
+            RCLCPP_INFO(this->get_logger(),
+                "COORD_CHAIN WGS84(lat=%.9f lon=%.9f alt=%.3f) "
+                "EPSG2100_PROJ(E=%.6f N=%.6f) "
+                "TM07(ok=%s X=%.6f Y=%.6f)\n"
+                "HEPOS(enabled=%s applied=%s source=%s grid_col=%.3f grid_row=%.3f dE_cm=%.6f dN_cm=%.6f dE_m=%.6f dN_m=%.6f) "
+                "EPSG2100_FINAL(E=%.6f N=%.6f Z=%.3f yaw_deg=%.2f)",
+                gnss_data_.lat, gnss_data_.lon, gnss_data_.alt,
+                epsg_x_proj, epsg_y_proj,
+                tm07_ok ? "true" : "false", tm07_x, tm07_y,
+                use_hepos_grid_correction_ ? "true" : "false",
+                hepos_result.applied ? "true" : "false",
+                hepos_result.used_grid ? "grid" : (hepos_result.used_fallback ? "fallback" : "none"),
+                hepos_result.grid_col, hepos_result.grid_row,
+                hepos_result.delta_e_cm, hepos_result.delta_n_cm,
+                hepos_result.delta_e_m, hepos_result.delta_n_m,
+                epsg_x, epsg_y, coord.xyz.z, yaw_ros_deg);
         }
 
         proj_destroy(P);
@@ -603,11 +773,113 @@ private:
     int utm_zone_;
     bool utm_northp_;
     bool use_epsg_crs_datum_;
+    std::string epsg2100_transform_mode_;
+    double hepos_helmert_dx_ = 203.437;
+    double hepos_helmert_dy_ = -73.461;
+    double hepos_helmert_dz_ = -243.594;
+    double hepos_helmert_rx_arcsec_ = -0.17;
+    double hepos_helmert_ry_arcsec_ = -0.06;
+    double hepos_helmert_rz_arcsec_ = -0.151;
+    double hepos_helmert_scale_ppm_ = 0.0;
+    std::string hepos_helmert_convention_ = "position_vector";
+    bool use_hepos_grid_correction_;
+    HeposGridCorrector hepos_grid_;
+    bool print_gpgga_console_;
+    bool print_all_gpgga_console_;
+    int print_gpgga_interval_;
+    std::string gpgga_raw_log_dir_;
+    std::string gpgga_raw_log_path_;
+    std::ofstream gpgga_raw_log_;
     std::mutex data_mutex_;
     GnssData gnss_data_;
     
     int gpgga_count_;
     int headinga_count_;
+
+    PJ *create_epsg2100_transform(PJ_CONTEXT *context, bool &accepts_lon_lat_degrees) {
+        accepts_lon_lat_degrees = true;
+
+        if (epsg2100_transform_mode_ == "fengjiang_7param") {
+            std::ostringstream pipeline;
+            pipeline << "+proj=pipeline "
+                     << "+step +proj=unitconvert +xy_in=deg +xy_out=rad "
+                     << "+step +proj=cart +ellps=GRS80 "
+                     << "+step +proj=helmert "
+                     << "+x=" << std::setprecision(12) << hepos_helmert_dx_ << " "
+                     << "+y=" << std::setprecision(12) << hepos_helmert_dy_ << " "
+                     << "+z=" << std::setprecision(12) << hepos_helmert_dz_ << " "
+                     << "+rx=" << std::setprecision(12) << hepos_helmert_rx_arcsec_ << " "
+                     << "+ry=" << std::setprecision(12) << hepos_helmert_ry_arcsec_ << " "
+                     << "+rz=" << std::setprecision(12) << hepos_helmert_rz_arcsec_ << " "
+                     << "+s=" << std::setprecision(12) << hepos_helmert_scale_ppm_ << " "
+                     << "+convention=" << hepos_helmert_convention_ << " "
+                     << "+step +inv +proj=cart +ellps=GRS80 "
+                     << "+step +proj=tmerc "
+                     << "+lat_0=0 "
+                     << "+lon_0=24 "
+                     << "+k=0.9996 "
+                     << "+x_0=500000 "
+                     << "+y_0=0 "
+                     << "+ellps=GRS80 "
+                     << "+units=m "
+                     << "+no_defs";
+
+            PJ *P = proj_create(context, pipeline.str().c_str());
+            if (!P) {
+                RCLCPP_ERROR_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+                    "Failed to create Fengjiang/HEPOS 7-param pipeline: %s", pipeline.str().c_str());
+            }
+            return P;
+        }
+
+        if (use_epsg_crs_datum_) {
+            PJ *raw = proj_create_crs_to_crs(context, "EPSG:4326", "EPSG:2100", nullptr);
+            if (!raw) {
+                return nullptr;
+            }
+            PJ *norm = proj_normalize_for_visualization(context, raw);
+            proj_destroy(raw);
+            return norm;
+        }
+
+        return proj_create(context,
+            "+proj=pipeline "
+            "+step +proj=unitconvert +xy_in=deg +xy_out=rad "
+            "+step +proj=tmerc "
+            "+lat_0=0 "
+            "+lon_0=24 "
+            "+k=0.9996 "
+            "+x_0=500000 "
+            "+y_0=0 "
+            "+ellps=GRS80 "
+            "+units=m "
+            "+no_defs"
+        );
+    }
+
+    bool project_to_tm07(PJ_CONTEXT *context, double lon, double lat, double alt, double &tm07_x, double &tm07_y) {
+        PJ *tm07 = proj_create(context,
+            "+proj=pipeline "
+            "+step +proj=unitconvert +xy_in=deg +xy_out=rad "
+            "+step +proj=tmerc "
+            "+lat_0=0 "
+            "+lon_0=24 "
+            "+k=0.9996 "
+            "+x_0=500000 "
+            "+y_0=-2000000 "
+            "+ellps=GRS80"
+        );
+        if (!tm07) {
+            return false;
+        }
+
+        PJ_COORD tm07_coord = proj_coord(lon, lat, alt, 0);
+        tm07_coord = proj_trans(tm07, PJ_FWD, tm07_coord);
+        tm07_x = tm07_coord.xy.x;
+        tm07_y = tm07_coord.xy.y;
+        proj_destroy(tm07);
+        return std::isfinite(tm07_x) && std::isfinite(tm07_y);
+    }
 };
 
 int main(int argc, char * argv[]) {

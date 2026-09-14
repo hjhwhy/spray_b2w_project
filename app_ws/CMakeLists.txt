@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 project(robot_tcp)
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(rclcpp REQUIRED)
@@ -8,6 +8,7 @@ find_package(std_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
+find_package(z1_arm_controller_cpp REQUIRED)
 
 add_executable(robot_tcp_node src/app_node.cpp)
 
@@ -17,6 +18,7 @@ ament_target_dependencies(robot_tcp_node
   nav_msgs
   sensor_msgs
   std_srvs
+  z1_arm_controller_cpp
 )
 
 target_link_libraries(robot_tcp_node

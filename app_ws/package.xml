@@ -12,6 +12,8 @@
   <depend>std_msgs</depend>
   <depend>nav_msgs</depend>
   <depend>sensor_msgs</depend>
+  <depend>std_srvs</depend>
+  <depend>z1_arm_controller_cpp</depend>
   <export>
     <build_type>ament_cmake</build_type>
   </export>

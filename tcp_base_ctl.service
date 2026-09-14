@@ -1,0 +1,31 @@
+[Unit]
+Description=Spray B2W TCP base control service
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=test
+Group=test
+WorkingDirectory=/home/test
+Environment=ROBOT_HOME=/home/test
+Environment=HOME=/home/test
+Environment=TCP_BASE_CTL_SKIP_PRIVILEGED_SETUP=1
+ExecStartPre=+/usr/bin/install -d -o test -g test -m 775 /home/test/logs /home/test/logs/tcp_base_ctl_runs
+ExecStartPre=+/usr/bin/chown -R test:test /home/test/logs
+ExecStartPre=+/usr/sbin/setcap cap_net_raw+ep /home/test/b2w_navigation_ws/install/b2w_navigation_controller/lib/b2w_navigation_controller/b2w_teleop_node
+ExecStartPre=+/opt/vendor_test/tac3kp_uart_mode_config.sh 485
+ExecStartPre=+/usr/bin/chmod 777 /dev/ttyTHS1 /dev/ttyTHS2
+ExecStart=/home/test/tcp_base_ctl.sh
+Restart=on-failure
+RestartSec=5
+KillMode=control-group
+TimeoutStopSec=20
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tcp_base_ctl
+
+[Install]
+WantedBy=multi-user.target

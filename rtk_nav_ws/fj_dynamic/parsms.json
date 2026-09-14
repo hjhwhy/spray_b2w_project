@@ -1,0 +1,36 @@
+{
+    "Coord System Params": {
+        "Name": "Hepos_GGRS87/TM87",
+        "Ellipsoied_params": {
+            "name": "NAD83: GRS 1980(IUGG,1980)",
+            "a": 6378137.0,
+            "1/f": 298.257222101,
+            "Coord Axis": "North-East"
+        },
+        "projection_params": {
+            "Projection": "Transverse Mercator",
+            "Central Meridian": "024:00:00.0000E",
+            "Origin Latitude": "00:00:00.0000N",
+            "False Easting": 500000.0,
+            "False Northing": 0.0,
+            "Projection Scale Factor": 0.9996,
+            "Projection Height": 0.0
+        },
+        "Seven_Params": {
+            "deleta_x": 203.437,
+            "deleta_y": -73.461,
+            "deleta_z": -243.594,
+            "alpha": -0.17,
+            "beta": -0.06,
+            "gamma": -0.151
+        },
+        "Plane Grid Model": {
+            "Grid Type": "N Grid & E Grid",
+            "N File Path": "dN_2km_V1-0.ngrd",
+            "E File Path": "dE_2km_V1-0.egrd"
+        },
+        "Geoid Model": {
+            "File Path": "GEOID_GR.GRD"
+        }
+    }
+}

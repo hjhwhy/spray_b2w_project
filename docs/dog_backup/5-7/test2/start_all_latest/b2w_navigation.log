@@ -1,0 +1,195 @@
+[INFO] [launch]: All log files can be found below /home/test/.ros/log/2026-05-07-14-23-02-300042-tac3000pro-ubuntu-8959
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [b2w_nav_node-1]: process started with pid [8961]
+[b2w_nav_node-1] [0m[INFO] [1778134982.523463424] [b2w_nav_node]: Loaded 5 waypoints from /home/test/gnss_waypoints.txt in file order[0m
+[b2w_nav_node-1] [0m[INFO] [1778134982.523665312] [b2w_nav_node]: Loaded parameters:[0m
+[b2w_nav_node-1] [0m[INFO] [1778134982.523691872] [b2w_nav_node]:   heading_alignment_threshold: 0.050 rad[0m
+[b2w_nav_node-1] [0m[INFO] [1778134982.523712064] [b2w_nav_node]:  moving_to_target_forward_speed: 0.900 m/s[0m
+[b2w_nav_node-1] [0m[INFO] [1778134982.523724704] [b2w_nav_node]:  z1_arm_end_height: 0.000 m[0m
+[b2w_nav_node-1] [0m[INFO] [1778134982.523735680] [b2w_nav_node]:  z1_arm_target_pitch_deg: 90.000 deg[0m
+[b2w_nav_node-1] [0m[INFO] [1778134982.523748928] [b2w_nav_node]:  arrive_distance: 0.800 m[0m
+[b2w_nav_node-1] [0m[INFO] [1778134982.523759328] [b2w_nav_node]:  min_distance_for_arm_task: 0.600 m[0m
+[b2w_nav_node-1] [0m[INFO] [1778134982.523769600] [b2w_nav_node]:  reposition_back_distance: 0.350 m[0m
+[b2w_nav_node-1] [0m[INFO] [1778134982.523779328] [b2w_nav_node]:  avoid_distance: 0.800 m[0m
+[b2w_nav_node-1] [0m[INFO] [1778134982.523789984] [b2w_nav_node]:  arm_offset_x: 0.3487 m[0m
+[b2w_nav_node-1] [0m[INFO] [1778134982.523800384] [b2w_nav_node]: rtk_x_offset: -0.4477 m[0m
+[b2w_nav_node-1] [0m[INFO] [1778134982.523810208] [b2w_nav_node]: rtk_hz: 10[0m
+[b2w_nav_node-1] [0m[INFO] [1778134982.523819424] [b2w_nav_node]: distance_to_slow_down: 2.500[0m
+[b2w_nav_node-1] [0m[INFO] [1778134982.523829536] [b2w_nav_node]: min_useful_vyaw: 0.400[0m
+[b2w_nav_node-1] [0m[INFO] [1778134982.523839296] [b2w_nav_node]: max_vyaw: 0.600[0m
+[b2w_nav_node-1] [0m[INFO] [1778134982.523849088] [b2w_nav_node]: waypoint_file_path: /home/test/gnss_waypoints.txt[0m
+[b2w_nav_node-1] [0m[INFO] [1778134982.538194624] [b2w_nav_node]: B2W Navigation Controller started with Yaw fusion.[0m
+[b2w_nav_node-1] [33m[WARN] [1778134982.588363456] [b2w_nav_node]: Waiting for valid RTK pose before executing navigation state machine.[0m
+[b2w_nav_node-1] [0m[INFO] [1778134983.038385056] [b2w_nav_node]: Received next waypoint: (481599.20, 4210292.48)[0m
+[b2w_nav_node-1] [0m[INFO] [1778134983.038501376] [b2w_nav_node]: Waypoint received. Aligning yaw before moving to target.[0m
+[b2w_nav_node-1] [0m[INFO] [1778134983.088986304] [b2w_nav_node]: Aligning initial yaw: error=-1.751 rad (-100.3°), vyaw=-0.600[0m
+[b2w_nav_node-1] [0m[INFO] [1778134983.589031744] [b2w_nav_node]: Aligning initial yaw: error=-1.576 rad (-90.3°), vyaw=-0.600[0m
+[b2w_nav_node-1] [0m[INFO] [1778134984.089092928] [b2w_nav_node]: Aligning initial yaw: error=-1.334 rad (-76.4°), vyaw=-0.600[0m
+[b2w_nav_node-1] [0m[INFO] [1778134984.589210720] [b2w_nav_node]: Aligning initial yaw: error=-1.041 rad (-59.7°), vyaw=-0.600[0m
+[b2w_nav_node-1] [0m[INFO] [1778134985.139045856] [b2w_nav_node]: Aligning initial yaw: error=-0.853 rad (-48.9°), vyaw=-0.600[0m
+[b2w_nav_node-1] [0m[INFO] [1778134985.639063520] [b2w_nav_node]: Aligning initial yaw: error=-0.481 rad (-27.6°), vyaw=-0.577[0m
+[b2w_nav_node-1] [0m[INFO] [1778134986.189094592] [b2w_nav_node]: Aligning initial yaw: error=-0.312 rad (-17.9°), vyaw=-0.400[0m
+[b2w_nav_node-1] [0m[INFO] [1778134986.689157952] [b2w_nav_node]: Aligning initial yaw: error=-0.202 rad (-11.6°), vyaw=-0.400[0m
+[b2w_nav_node-1] [0m[INFO] [1778134987.188306560] [b2w_nav_node]: Initial yaw alignment complete. Error: -0.03 rad[0m
+[b2w_nav_node-1] [0m[INFO] [1778134987.239018048] [b2w_nav_node]: Moving: Target=(481599.20,4210292.48) Dist=5.11 YawErr=-0.03 vcmd=0.90 vyaw=-0.09[0m
+[b2w_nav_node-1] [0m[INFO] [1778134987.789108032] [b2w_nav_node]: Moving: Target=(481599.20,4210292.48) Dist=4.87 YawErr=0.01 vcmd=0.90 vyaw=0.00[0m
+[b2w_nav_node-1] [0m[INFO] [1778134988.338801312] [b2w_nav_node]: Moving: Target=(481599.20,4210292.48) Dist=4.44 YawErr=0.01 vcmd=0.90 vyaw=0.00[0m
+[b2w_nav_node-1] [0m[INFO] [1778134988.838916512] [b2w_nav_node]: Moving: Target=(481599.20,4210292.48) Dist=4.04 YawErr=0.02 vcmd=0.90 vyaw=0.00[0m
+[b2w_nav_node-1] [0m[INFO] [1778134989.389019776] [b2w_nav_node]: Moving: Target=(481599.20,4210292.48) Dist=3.57 YawErr=-0.06 vcmd=0.90 vyaw=-0.17[0m
+[b2w_nav_node-1] [0m[INFO] [1778134989.938839680] [b2w_nav_node]: Moving: Target=(481599.20,4210292.48) Dist=3.18 YawErr=-0.02 vcmd=0.90 vyaw=0.00[0m
+[b2w_nav_node-1] [0m[INFO] [1778134990.438930112] [b2w_nav_node]: Moving: Target=(481599.20,4210292.48) Dist=2.80 YawErr=-0.04 vcmd=0.90 vyaw=-0.12[0m
+[b2w_nav_node-1] [0m[INFO] [1778134990.939081568] [b2w_nav_node]: Moving: Target=(481599.20,4210292.48) Dist=2.41 YawErr=-0.01 vcmd=0.87 vyaw=0.00[0m
+[b2w_nav_node-1] [0m[INFO] [1778134991.439118432] [b2w_nav_node]: Moving: Target=(481599.20,4210292.48) Dist=2.05 YawErr=0.02 vcmd=0.74 vyaw=0.00[0m
+[b2w_nav_node-1] [0m[INFO] [1778134991.989115520] [b2w_nav_node]: Moving: Target=(481599.20,4210292.48) Dist=1.70 YawErr=0.01 vcmd=0.61 vyaw=0.00[0m
+[b2w_nav_node-1] [0m[INFO] [1778134992.539091328] [b2w_nav_node]: Moving: Target=(481599.20,4210292.48) Dist=1.46 YawErr=-0.02 vcmd=0.53 vyaw=0.00[0m
+[b2w_nav_node-1] [0m[INFO] [1778134993.039270112] [b2w_nav_node]: Moving: Target=(481599.20,4210292.48) Dist=1.26 YawErr=0.00 vcmd=0.46 vyaw=0.00[0m
+[b2w_nav_node-1] [0m[INFO] [1778134993.588956736] [b2w_nav_node]: Moving: Target=(481599.20,4210292.48) Dist=1.07 YawErr=-0.01 vcmd=0.39 vyaw=0.00[0m
+[b2w_nav_node-1] [0m[INFO] [1778134994.139152384] [b2w_nav_node]: Moving: Target=(481599.20,4210292.48) Dist=0.94 YawErr=-0.05 vcmd=0.34 vyaw=-0.15[0m
+[b2w_nav_node-1] [0m[INFO] [1778134994.639192448] [b2w_nav_node]: Moving: Target=(481599.20,4210292.48) Dist=0.83 YawErr=-0.08 vcmd=0.30 vyaw=-0.23[0m
+[b2w_nav_node-1] [0m[INFO] [1778134994.788365312] [b2w_nav_node]: =========================================[0m
+[b2w_nav_node-1] [0m[INFO] [1778134994.788427232] [b2w_nav_node]: ✅ WAYPOINT REACHED[0m
+[b2w_nav_node-1] [0m[INFO] [1778134994.788443808] [b2w_nav_node]: Target Pos (Local): (481599.1990, 4210292.4820)[0m
+[b2w_nav_node-1] [0m[INFO] [1778134994.788464192] [b2w_nav_node]: Actual Pos (Local): (481598.7384, 4210293.1189)[0m
+[b2w_nav_node-1] [0m[INFO] [1778134994.788479168] [b2w_nav_node]: Actual Yaw:         -51.71°[0m
+[b2w_nav_node-1] [0m[INFO] [1778134994.788522880] [b2w_nav_node]: Distance Error:     0.7859 m[0m
+[b2w_nav_node-1] [0m[INFO] [1778134994.788538016] [b2w_nav_node]: =========================================[0m
+[b2w_nav_node-1] [0m[INFO] [1778134994.838989088] [b2w_nav_node]: Collecting RTK frames for arm task: 0/5[0m
+[b2w_nav_node-1] [0m[INFO] [1778134995.288922944] [b2w_nav_node]: RTK 5-frame avg ready: (481598.7688, 4210293.0936) yaw=-51.65°[0m
+[b2w_nav_node-1] [0m[INFO] [1778134995.339246688] [b2w_nav_node]: ARM_TRIGGER base=(481598.7688,4210293.0936) yaw=-51.65° z1_world=(481598.9852,4210292.8202) target=(481599.1990,4210292.4820)[0m
+[b2w_nav_node-1] [0m[INFO] [1778134995.339434912] [b2w_nav_node]: Sent request to move arm.[0m
+[b2w_nav_node-1] [0m[INFO] [1778134999.739084320] [b2w_nav_node]: /z1_move_to_target succeeded.[0m
+[b2w_nav_node-1] [0m[INFO] [1778134999.788949824] [b2w_nav_node]: Sent request to /trigger_valve_ch1.[0m
+[b2w_nav_node-1] [0m[INFO] [1778135000.639133120] [b2w_nav_node]: /trigger_valve_ch1 succeeded. 电磁阀打开[0m
+[b2w_nav_node-1] [0m[INFO] [1778135000.689223680] [b2w_nav_node]: Sent request to reset arm.[0m
+[b2w_nav_node-1] [0m[INFO] [1778135005.439171072] [b2w_nav_node]: /z1_reset_arm succeeded.[0m
+[b2w_nav_node-1] [0m[INFO] [1778135005.488882112] [b2w_nav_node]: Ready to fetch next waypoint...[0m
+[b2w_nav_node-1] [0m[INFO] [1778135005.538364448] [b2w_nav_node]: Received next waypoint: (481597.91, 4210291.19)[0m
+[b2w_nav_node-1] [0m[INFO] [1778135005.538451392] [b2w_nav_node]: Waypoint received. Aligning yaw before moving to target.[0m
+[b2w_nav_node-1] [0m[INFO] [1778135005.589121888] [b2w_nav_node]: Aligning initial yaw: error=-1.069 rad (-61.2°), vyaw=-0.600[0m
+[b2w_nav_node-1] [0m[INFO] [1778135006.138974368] [b2w_nav_node]: Aligning initial yaw: error=-0.933 rad (-53.4°), vyaw=-0.600[0m
+[b2w_nav_node-1] [0m[INFO] [1778135006.639117536] [b2w_nav_node]: Aligning initial yaw: error=-0.619 rad (-35.5°), vyaw=-0.600[0m
+[b2w_nav_node-1] [0m[INFO] [1778135007.139205344] [b2w_nav_node]: Aligning initial yaw: error=-0.393 rad (-22.5°), vyaw=-0.472[0m
+[b2w_nav_node-1] [0m[INFO] [1778135007.689001888] [b2w_nav_node]: Aligning initial yaw: error=-0.126 rad (-7.2°), vyaw=-0.400[0m
+[b2w_nav_node-1] [0m[INFO] [1778135007.788323520] [b2w_nav_node]: Initial yaw alignment complete. Error: -0.02 rad[0m
+[b2w_nav_node-1] [0m[INFO] [1778135007.838725760] [b2w_nav_node]: Moving: Target=(481597.91,4210291.19) Dist=2.07 YawErr=-0.02 vcmd=0.75 vyaw=0.00[0m
+[b2w_nav_node-1] [0m[INFO] [1778135008.388810080] [b2w_nav_node]: Moving: Target=(481597.91,4210291.19) Dist=1.91 YawErr=-0.01 vcmd=0.69 vyaw=0.00[0m
+[b2w_nav_node-1] [0m[INFO] [1778135008.889064864] [b2w_nav_node]: Moving: Target=(481597.91,4210291.19) Dist=1.59 YawErr=0.01 vcmd=0.57 vyaw=0.00[0m
+[b2w_nav_node-1] [0m[INFO] [1778135009.438966784] [b2w_nav_node]: Moving: Target=(481597.91,4210291.19) Dist=1.36 YawErr=-0.01 vcmd=0.49 vyaw=0.00[0m
+[b2w_nav_node-1] [0m[INFO] [1778135009.939078592] [b2w_nav_node]: Moving: Target=(481597.91,4210291.19) Dist=1.16 YawErr=0.02 vcmd=0.42 vyaw=0.00[0m
+[b2w_nav_node-1] [0m[INFO] [1778135010.489152832] [b2w_nav_node]: Moving: Target=(481597.91,4210291.19) Dist=0.97 YawErr=-0.01 vcmd=0.35 vyaw=0.00[0m
+[b2w_nav_node-1] [0m[INFO] [1778135010.989254880] [b2w_nav_node]: Moving: Target=(481597.91,4210291.19) Dist=0.83 YawErr=-0.01 vcmd=0.30 vyaw=0.00[0m
+[b2w_nav_node-1] [0m[INFO] [1778135011.188308320] [b2w_nav_node]: =========================================[0m
+[b2w_nav_node-1] [0m[INFO] [1778135011.188381536] [b2w_nav_node]: ✅ WAYPOINT REACHED[0m
+[b2w_nav_node-1] [0m[INFO] [1778135011.188400544] [b2w_nav_node]: Target Pos (Local): (481597.9110, 4210291.1930)[0m
+[b2w_nav_node-1] [0m[INFO] [1778135011.188450720] [b2w_nav_node]: Actual Pos (Local): (481598.2379, 4210291.9106)[0m
+[b2w_nav_node-1] [0m[INFO] [1778135011.188474784] [b2w_nav_node]: Actual Yaw:         -117.19°[0m
+[b2w_nav_node-1] [0m[INFO] [1778135011.188579680] [b2w_nav_node]: Distance Error:     0.7885 m[0m
+[b2w_nav_node-1] [0m[INFO] [1778135011.188600640] [b2w_nav_node]: =========================================[0m
+[b2w_nav_node-1] [0m[INFO] [1778135011.239143360] [b2w_nav_node]: Collecting RTK frames for arm task: 0/5[0m
+[b2w_nav_node-1] [0m[INFO] [1778135011.689059168] [b2w_nav_node]: RTK 5-frame avg ready: (481598.2339, 4210291.8722) yaw=-115.55°[0m
+[b2w_nav_node-1] [0m[INFO] [1778135011.738938976] [b2w_nav_node]: ARM_TRIGGER base=(481598.2339,4210291.8722) yaw=-115.55° z1_world=(481598.0835,4210291.5576) target=(481597.9110,4210291.1930)[0m
+[b2w_nav_node-1] [0m[INFO] [1778135011.739121600] [b2w_nav_node]: Sent request to move arm.[0m
+[b2w_nav_node-1] [0m[INFO] [1778135016.189134112] [b2w_nav_node]: /z1_move_to_target succeeded.[0m
+[b2w_nav_node-1] [0m[INFO] [1778135016.239296992] [b2w_nav_node]: Sent request to /trigger_valve_ch1.[0m
+[b2w_nav_node-1] [0m[INFO] [1778135017.089625216] [b2w_nav_node]: /trigger_valve_ch1 succeeded. 电磁阀打开[0m
+[b2w_nav_node-1] [0m[INFO] [1778135017.138929504] [b2w_nav_node]: Sent request to reset arm.[0m
+[b2w_nav_node-1] [0m[INFO] [1778135021.939038880] [b2w_nav_node]: /z1_reset_arm succeeded.[0m
+[b2w_nav_node-1] [0m[INFO] [1778135021.988988608] [b2w_nav_node]: Ready to fetch next waypoint...[0m
+[b2w_nav_node-1] [0m[INFO] [1778135022.038330464] [b2w_nav_node]: Received next waypoint: (481596.11, 4210291.17)[0m
+[b2w_nav_node-1] [0m[INFO] [1778135022.038402848] [b2w_nav_node]: Waypoint received. Aligning yaw before moving to target.[0m
+[b2w_nav_node-1] [0m[INFO] [1778135022.089080352] [b2w_nav_node]: Aligning initial yaw: error=-0.815 rad (-46.7°), vyaw=-0.600[0m
+[b2w_nav_node-1] [0m[INFO] [1778135022.638919840] [b2w_nav_node]: Aligning initial yaw: error=-0.662 rad (-37.9°), vyaw=-0.600[0m
+[b2w_nav_node-1] [0m[INFO] [1778135023.188794464] [b2w_nav_node]: Aligning initial yaw: error=-0.352 rad (-20.2°), vyaw=-0.422[0m
+[b2w_nav_node-1] [0m[INFO] [1778135023.738725248] [b2w_nav_node]: Aligning initial yaw: error=-0.135 rad (-7.7°), vyaw=-0.400[0m
+[b2w_nav_node-1] [0m[INFO] [1778135024.238747136] [b2w_nav_node]: Aligning initial yaw: error=-0.051 rad (-2.9°), vyaw=-0.400[0m
+[b2w_nav_node-1] [0m[INFO] [1778135024.288312512] [b2w_nav_node]: Initial yaw alignment complete. Error: -0.01 rad[0m
+[b2w_nav_node-1] [0m[INFO] [1778135024.338926240] [b2w_nav_node]: Moving: Target=(481596.11,4210291.17) Dist=2.25 YawErr=-0.01 vcmd=0.81 vyaw=0.00[0m
+[b2w_nav_node-1] [0m[INFO] [1778135024.889168864] [b2w_nav_node]: Moving: Target=(481596.11,4210291.17) Dist=2.03 YawErr=0.14 vcmd=0.73 vyaw=0.43[0m
+[b2w_nav_node-1] [0m[INFO] [1778135025.439031456] [b2w_nav_node]: Moving: Target=(481596.11,4210291.17) Dist=1.70 YawErr=-0.00 vcmd=0.61 vyaw=0.00[0m
+[b2w_nav_node-1] [0m[INFO] [1778135025.988839712] [b2w_nav_node]: Moving: Target=(481596.11,4210291.17) Dist=1.40 YawErr=-0.10 vcmd=0.50 vyaw=-0.29[0m
+[b2w_nav_node-1] [0m[INFO] [1778135026.489097536] [b2w_nav_node]: Moving: Target=(481596.11,4210291.17) Dist=1.18 YawErr=-0.00 vcmd=0.43 vyaw=0.00[0m
+[b2w_nav_node-1] [0m[INFO] [1778135027.038986208] [b2w_nav_node]: Moving: Target=(481596.11,4210291.17) Dist=1.03 YawErr=0.03 vcmd=0.37 vyaw=0.09[0m
+[b2w_nav_node-1] [0m[INFO] [1778135027.588964128] [b2w_nav_node]: Moving: Target=(481596.11,4210291.17) Dist=0.89 YawErr=-0.02 vcmd=0.32 vyaw=0.00[0m
+[b2w_nav_node-1] [0m[INFO] [1778135027.988353824] [b2w_nav_node]: =========================================[0m
+[b2w_nav_node-1] [0m[INFO] [1778135027.988416224] [b2w_nav_node]: ✅ WAYPOINT REACHED[0m
+[b2w_nav_node-1] [0m[INFO] [1778135027.988436608] [b2w_nav_node]: Target Pos (Local): (481596.1140, 4210291.1690)[0m
+[b2w_nav_node-1] [0m[INFO] [1778135027.988461120] [b2w_nav_node]: Actual Pos (Local): (481596.8647, 4210291.4016)[0m
+[b2w_nav_node-1] [0m[INFO] [1778135027.988478592] [b2w_nav_node]: Actual Yaw:         -162.65°[0m
+[b2w_nav_node-1] [0m[INFO] [1778135027.988518912] [b2w_nav_node]: Distance Error:     0.7859 m[0m
+[b2w_nav_node-1] [0m[INFO] [1778135027.988533568] [b2w_nav_node]: =========================================[0m
+[b2w_nav_node-1] [0m[INFO] [1778135028.038966560] [b2w_nav_node]: Collecting RTK frames for arm task: 0/5[0m
+[b2w_nav_node-1] [0m[INFO] [1778135028.488934336] [b2w_nav_node]: RTK 5-frame avg ready: (481596.8424, 4210291.3855) yaw=-162.18°[0m
+[b2w_nav_node-1] [0m[INFO] [1778135028.539054784] [b2w_nav_node]: ARM_TRIGGER base=(481596.8424,4210291.3855) yaw=-162.18° z1_world=(481596.5104,4210291.2788) target=(481596.1140,4210291.1690)[0m
+[b2w_nav_node-1] [0m[INFO] [1778135028.539222656] [b2w_nav_node]: Sent request to move arm.[0m
+[b2w_nav_node-1] [0m[INFO] [1778135033.038759648] [b2w_nav_node]: /z1_move_to_target succeeded.[0m
+[b2w_nav_node-1] [0m[INFO] [1778135033.089095424] [b2w_nav_node]: Sent request to /trigger_valve_ch1.[0m
+[b2w_nav_node-1] [0m[INFO] [1778135033.938910880] [b2w_nav_node]: /trigger_valve_ch1 succeeded. 电磁阀打开[0m
+[b2w_nav_node-1] [0m[INFO] [1778135033.989119200] [b2w_nav_node]: Sent request to reset arm.[0m
+[b2w_nav_node-1] [0m[INFO] [1778135038.789115072] [b2w_nav_node]: /z1_reset_arm succeeded.[0m
+[b2w_nav_node-1] [0m[INFO] [1778135038.838933056] [b2w_nav_node]: Ready to fetch next waypoint...[0m
+[b2w_nav_node-1] [0m[INFO] [1778135038.888324928] [b2w_nav_node]: Received next waypoint: (481592.70, 4210292.17)[0m
+[b2w_nav_node-1] [0m[INFO] [1778135038.888393696] [b2w_nav_node]: Waypoint received. Aligning yaw before moving to target.[0m
+[b2w_nav_node-1] [0m[INFO] [1778135038.939099296] [b2w_nav_node]: Aligning initial yaw: error=-0.465 rad (-26.6°), vyaw=-0.558[0m
+[b2w_nav_node-1] [0m[INFO] [1778135039.488985696] [b2w_nav_node]: Aligning initial yaw: error=-0.310 rad (-17.8°), vyaw=-0.400[0m
+[b2w_nav_node-1] [0m[INFO] [1778135039.989109888] [b2w_nav_node]: Aligning initial yaw: error=-0.187 rad (-10.7°), vyaw=-0.400[0m
+[b2w_nav_node-1] [0m[INFO] [1778135040.488306016] [b2w_nav_node]: Initial yaw alignment complete. Error: -0.01 rad[0m
+[b2w_nav_node-1] [0m[INFO] [1778135040.538703904] [b2w_nav_node]: Moving: Target=(481592.70,4210292.17) Dist=4.27 YawErr=-0.01 vcmd=0.90 vyaw=0.00[0m
+[b2w_nav_node-1] [0m[INFO] [1778135041.038882080] [b2w_nav_node]: Moving: Target=(481592.70,4210292.17) Dist=4.11 YawErr=0.03 vcmd=0.90 vyaw=0.08[0m
+[b2w_nav_node-1] [0m[INFO] [1778135041.588981248] [b2w_nav_node]: Moving: Target=(481592.70,4210292.17) Dist=3.60 YawErr=-0.01 vcmd=0.90 vyaw=0.00[0m
+[b2w_nav_node-1] [0m[INFO] [1778135042.138752672] [b2w_nav_node]: Moving: Target=(481592.70,4210292.17) Dist=3.21 YawErr=0.03 vcmd=0.90 vyaw=0.10[0m
+[b2w_nav_node-1] [0m[INFO] [1778135042.638808736] [b2w_nav_node]: Moving: Target=(481592.70,4210292.17) Dist=2.82 YawErr=-0.03 vcmd=0.90 vyaw=-0.08[0m
+[b2w_nav_node-1] [0m[INFO] [1778135043.138858016] [b2w_nav_node]: Moving: Target=(481592.70,4210292.17) Dist=2.45 YawErr=0.07 vcmd=0.88 vyaw=0.20[0m
+[b2w_nav_node-1] [0m[INFO] [1778135043.689064480] [b2w_nav_node]: Moving: Target=(481592.70,4210292.17) Dist=2.02 YawErr=-0.02 vcmd=0.73 vyaw=0.00[0m
+[b2w_nav_node-1] [0m[INFO] [1778135044.238893728] [b2w_nav_node]: Moving: Target=(481592.70,4210292.17) Dist=1.70 YawErr=-0.03 vcmd=0.61 vyaw=-0.10[0m
+[b2w_nav_node-1] [0m[INFO] [1778135044.738905920] [b2w_nav_node]: Moving: Target=(481592.70,4210292.17) Dist=1.44 YawErr=0.02 vcmd=0.52 vyaw=0.00[0m
+[b2w_nav_node-1] [0m[INFO] [1778135045.238959520] [b2w_nav_node]: Moving: Target=(481592.70,4210292.17) Dist=1.23 YawErr=0.00 vcmd=0.44 vyaw=0.00[0m
+[b2w_nav_node-1] [0m[INFO] [1778135045.738983328] [b2w_nav_node]: Moving: Target=(481592.70,4210292.17) Dist=1.05 YawErr=0.08 vcmd=0.38 vyaw=0.25[0m
+[b2w_nav_node-1] [0m[INFO] [1778135046.288982368] [b2w_nav_node]: Moving: Target=(481592.70,4210292.17) Dist=0.90 YawErr=0.01 vcmd=0.32 vyaw=0.00[0m
+[b2w_nav_node-1] [0m[INFO] [1778135046.788325760] [b2w_nav_node]: =========================================[0m
+[b2w_nav_node-1] [0m[INFO] [1778135046.788393728] [b2w_nav_node]: ✅ WAYPOINT REACHED[0m
+[b2w_nav_node-1] [0m[INFO] [1778135046.788417088] [b2w_nav_node]: Target Pos (Local): (481592.7040, 4210292.1740)[0m
+[b2w_nav_node-1] [0m[INFO] [1778135046.788439840] [b2w_nav_node]: Actual Pos (Local): (481593.4739, 4210292.0038)[0m
+[b2w_nav_node-1] [0m[INFO] [1778135046.788454816] [b2w_nav_node]: Actual Yaw:         169.75°[0m
+[b2w_nav_node-1] [0m[INFO] [1778135046.788467264] [b2w_nav_node]: Distance Error:     0.7885 m[0m
+[b2w_nav_node-1] [0m[INFO] [1778135046.788478560] [b2w_nav_node]: =========================================[0m
+[b2w_nav_node-1] [0m[INFO] [1778135046.839012320] [b2w_nav_node]: Collecting RTK frames for arm task: 0/5[0m
+[b2w_nav_node-1] [0m[INFO] [1778135047.288977856] [b2w_nav_node]: RTK 5-frame avg ready: (481593.4445, 4210292.0098) yaw=169.26°[0m
+[b2w_nav_node-1] [0m[INFO] [1778135047.339009312] [b2w_nav_node]: ARM_TRIGGER base=(481593.4445,4210292.0098) yaw=169.26° z1_world=(481593.1019,4210292.0747) target=(481592.7040,4210292.1740)[0m
+[b2w_nav_node-1] [0m[INFO] [1778135047.339189024] [b2w_nav_node]: Sent request to move arm.[0m
+[b2w_nav_node-1] [0m[INFO] [1778135051.839128480] [b2w_nav_node]: /z1_move_to_target succeeded.[0m
+[b2w_nav_node-1] [0m[INFO] [1778135051.889106976] [b2w_nav_node]: Sent request to /trigger_valve_ch1.[0m
+[b2w_nav_node-1] [0m[INFO] [1778135052.738941760] [b2w_nav_node]: /trigger_valve_ch1 succeeded. 电磁阀打开[0m
+[b2w_nav_node-1] [0m[INFO] [1778135052.788950336] [b2w_nav_node]: Sent request to reset arm.[0m
+[b2w_nav_node-1] [0m[INFO] [1778135057.588800416] [b2w_nav_node]: /z1_reset_arm succeeded.[0m
+[b2w_nav_node-1] [0m[INFO] [1778135057.639035392] [b2w_nav_node]: Ready to fetch next waypoint...[0m
+[b2w_nav_node-1] [0m[INFO] [1778135057.688318944] [b2w_nav_node]: Received next waypoint: (481591.03, 4210292.87)[0m
+[b2w_nav_node-1] [0m[INFO] [1778135057.688393632] [b2w_nav_node]: Waypoint received. Aligning yaw before moving to target.[0m
+[b2w_nav_node-1] [0m[INFO] [1778135057.739004320] [b2w_nav_node]: Aligning initial yaw: error=-0.150 rad (-8.6°), vyaw=-0.400[0m
+[b2w_nav_node-1] [0m[INFO] [1778135058.289023328] [b2w_nav_node]: Aligning initial yaw: error=-0.093 rad (-5.3°), vyaw=-0.400[0m
+[b2w_nav_node-1] [0m[INFO] [1778135058.388315232] [b2w_nav_node]: Initial yaw alignment complete. Error: -0.04 rad[0m
+[b2w_nav_node-1] [0m[INFO] [1778135058.438952576] [b2w_nav_node]: Moving: Target=(481591.03,4210292.87) Dist=2.61 YawErr=-0.04 vcmd=0.90 vyaw=-0.13[0m
+[b2w_nav_node-1] [0m[INFO] [1778135058.988979808] [b2w_nav_node]: Moving: Target=(481591.03,4210292.87) Dist=2.37 YawErr=-0.05 vcmd=0.85 vyaw=-0.16[0m
+[b2w_nav_node-1] [0m[INFO] [1778135059.538880992] [b2w_nav_node]: Moving: Target=(481591.03,4210292.87) Dist=1.97 YawErr=-0.00 vcmd=0.71 vyaw=0.00[0m
+[b2w_nav_node-1] [0m[INFO] [1778135060.089010624] [b2w_nav_node]: Moving: Target=(481591.03,4210292.87) Dist=1.59 YawErr=-0.04 vcmd=0.57 vyaw=-0.12[0m
+[b2w_nav_node-1] [0m[INFO] [1778135060.638743808] [b2w_nav_node]: Moving: Target=(481591.03,4210292.87) Dist=1.34 YawErr=-0.01 vcmd=0.48 vyaw=0.00[0m
+[b2w_nav_node-1] [0m[INFO] [1778135061.188982176] [b2w_nav_node]: Moving: Target=(481591.03,4210292.87) Dist=1.08 YawErr=0.01 vcmd=0.39 vyaw=0.00[0m
+[b2w_nav_node-1] [0m[INFO] [1778135061.688985376] [b2w_nav_node]: Moving: Target=(481591.03,4210292.87) Dist=0.94 YawErr=-0.05 vcmd=0.34 vyaw=-0.15[0m
+[b2w_nav_node-1] [0m[INFO] [1778135062.238969824] [b2w_nav_node]: Moving: Target=(481591.03,4210292.87) Dist=0.83 YawErr=-0.06 vcmd=0.30 vyaw=-0.17[0m
+[b2w_nav_node-1] [0m[INFO] [1778135062.388313024] [b2w_nav_node]: =========================================[0m
+[b2w_nav_node-1] [0m[INFO] [1778135062.388381536] [b2w_nav_node]: ✅ WAYPOINT REACHED[0m
+[b2w_nav_node-1] [0m[INFO] [1778135062.388401632] [b2w_nav_node]: Target Pos (Local): (481591.0260, 4210292.8710)[0m
+[b2w_nav_node-1] [0m[INFO] [1778135062.388426432] [b2w_nav_node]: Actual Pos (Local): (481591.7447, 4210292.5447)[0m
+[b2w_nav_node-1] [0m[INFO] [1778135062.388442400] [b2w_nav_node]: Actual Yaw:         155.20°[0m
+[b2w_nav_node-1] [0m[INFO] [1778135062.388455776] [b2w_nav_node]: Distance Error:     0.7893 m[0m
+[b2w_nav_node-1] [0m[INFO] [1778135062.388467840] [b2w_nav_node]: =========================================[0m
+[b2w_nav_node-1] [0m[INFO] [1778135062.438951200] [b2w_nav_node]: Collecting RTK frames for arm task: 0/5[0m
+[b2w_nav_node-1] [0m[INFO] [1778135062.888996064] [b2w_nav_node]: RTK 5-frame avg ready: (481591.7114, 4210292.5536) yaw=154.70°[0m
+[b2w_nav_node-1] [0m[INFO] [1778135062.938950208] [b2w_nav_node]: ARM_TRIGGER base=(481591.7114,4210292.5536) yaw=154.70° z1_world=(481591.3961,4210292.7027) target=(481591.0260,4210292.8710)[0m
+[b2w_nav_node-1] [0m[INFO] [1778135062.939103424] [b2w_nav_node]: Sent request to move arm.[0m
+[b2w_nav_node-1] [0m[INFO] [1778135067.388830336] [b2w_nav_node]: /z1_move_to_target succeeded.[0m
+[b2w_nav_node-1] [0m[INFO] [1778135067.438958336] [b2w_nav_node]: Sent request to /trigger_valve_ch1.[0m
+[b2w_nav_node-1] [0m[INFO] [1778135068.289160576] [b2w_nav_node]: /trigger_valve_ch1 succeeded. 电磁阀打开[0m
+[b2w_nav_node-1] [0m[INFO] [1778135068.339078816] [b2w_nav_node]: Sent request to reset arm.[0m
+[b2w_nav_node-1] [0m[INFO] [1778135073.138940000] [b2w_nav_node]: /z1_reset_arm succeeded.[0m
+[b2w_nav_node-1] [0m[INFO] [1778135073.189032384] [b2w_nav_node]: Ready to fetch next waypoint...[0m
+[b2w_nav_node-1] [0m[INFO] [1778135073.238330816] [b2w_nav_node]: No more waypoints from local file.[0m

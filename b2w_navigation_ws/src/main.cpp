@@ -29,6 +29,7 @@
 #include <unitree/robot/b2/sport/sport_client.hpp>
 #include <sensor_msgs/msg/battery_state.hpp>
 #include <std_msgs/msg/float32_multi_array.hpp>
+#include <std_msgs/msg/byte.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -53,6 +54,23 @@ public:
         double z;
     };
 
+    enum State {
+        WAITING_FOR_WAYPOINT,
+        ALIGNING_YAW,
+        MOVING_TO_TARGET,
+        REPOSITIONING_BACKWARD,
+        WAITING_FOR_FRESH_RTK,
+        AVOID_TURNING,
+        AVOID_MOVING,
+        EXECUTING_ARM_TASK,
+        RETRYING_ARM_AFTER_FORWARD,
+        RETRYING_ARM_AFTER_BACKUP,
+        TRIGGERING_RELAY,
+        RESETTING_ARM,
+        GET_NEXT_WAYPOINT,
+        FINISH_ALL_POINTS
+    };
+
     explicit B2WNavigationController()
         : Node("b2w_navigation_controller"),
           moving_(false), state_(WAITING_FOR_WAYPOINT),
@@ -62,32 +80,59 @@ public:
         this->declare_parameter("moving_to_target_forward_speed", 0.8);
         this->declare_parameter("heading_alignment_threshold", 0.2); // 弧度，约10.14度
         this->declare_parameter("z1_arm_end_height", 0.0);
+        this->declare_parameter("z1_arm_target_pitch_deg", 90.0);
         this->declare_parameter("arrive_distance", 0.8);
         this->declare_parameter("min_distance_for_arm_task", 0.6);
         this->declare_parameter("reposition_back_distance", 0.35);
         this->declare_parameter("avoid_distance", 0.8);
         this->declare_parameter<double>("obstacle_detection_range", 1.2); 
         this->declare_parameter("arm_offset_x", 0.3487);
+        this->declare_parameter("arm_target_comp_x", 0.0);
+        this->declare_parameter("rtk_x_offset", -0.4477);
         this->declare_parameter("rtk_hz", 10); //hz
         this->declare_parameter("distance_to_slow_down", 2.5);
         this->declare_parameter("min_useful_vyaw", 0.4);
         this->declare_parameter("max_vyaw", 0.6);
         this->declare_parameter("waypoint_file_path", std::string("gnss_waypoints.txt"));
-        
+        this->declare_parameter<std::string>("operation_mode", "spray");
+        this->declare_parameter<bool>("arm_reset_on_pause", true);
+        this->declare_parameter<double>("arm_safety_reset_timeout_seconds", 15.0);
+        this->declare_parameter<bool>("stop_on_completion", false);
+
         this->get_parameter("heading_alignment_threshold", heading_alignment_threshold_);
         this->get_parameter("moving_to_target_forward_speed", moving_to_target_forward_speed_);
         this->get_parameter("z1_arm_end_height", z1_arm_end_height_);
+        this->get_parameter("z1_arm_target_pitch_deg", z1_arm_target_pitch_deg_);
         this->get_parameter("arrive_distance", arrive_distance_);
         this->get_parameter("min_distance_for_arm_task", min_distance_for_arm_task_);
         this->get_parameter("reposition_back_distance", reposition_back_distance_);
         this->get_parameter("avoid_distance", avoid_dist_);
         this->get_parameter("obstacle_detection_range", obs_range_);
         this->get_parameter("arm_offset_x", arm_offset_x_);
+        this->get_parameter("arm_target_comp_x", arm_target_comp_x_);
+        this->get_parameter("rtk_x_offset", rtk_x_offset_);
         this->get_parameter("rtk_hz", rtk_hz_);
         this->get_parameter("distance_to_slow_down", distance_to_slow_down_);
         this->get_parameter("min_useful_vyaw", min_useful_vyaw_);
         this->get_parameter("max_vyaw", max_vyaw_);
         this->get_parameter("waypoint_file_path", waypoint_file_path_);
+        this->get_parameter("operation_mode", operation_mode_);
+        this->get_parameter("arm_reset_on_pause", arm_reset_on_pause_);
+        this->get_parameter("arm_safety_reset_timeout_seconds", arm_safety_reset_timeout_seconds_);
+        this->get_parameter("stop_on_completion", stop_on_completion_);
+        arm_safety_reset_request_time_ = this->now();
+
+        if (operation_mode_ == "dock_return") {
+            dock_return_mode_ = true;
+        } else if (operation_mode_ == "spray") {
+            dock_return_mode_ = false;
+        } else {
+            RCLCPP_FATAL(this->get_logger(),
+                "Invalid operation_mode='%s'. Expected 'spray' or 'dock_return'.",
+                operation_mode_.c_str());
+            rclcpp::shutdown();
+            return;
+        }
 
         if (!LoadWaypointsFromFile(waypoint_file_path_)) {
             RCLCPP_FATAL(this->get_logger(), "Failed to load waypoints. Check waypoint_file_path: %s", waypoint_file_path_.c_str());
@@ -99,16 +144,22 @@ public:
         RCLCPP_INFO(this->get_logger(), "  heading_alignment_threshold: %.3f rad", heading_alignment_threshold_);
         RCLCPP_INFO(this->get_logger(), " moving_to_target_forward_speed: %.3f m/s", moving_to_target_forward_speed_);
         RCLCPP_INFO(this->get_logger(), " z1_arm_end_height: %.3f m", z1_arm_end_height_);
+        RCLCPP_INFO(this->get_logger(), " z1_arm_target_pitch_deg: %.3f deg", z1_arm_target_pitch_deg_);
         RCLCPP_INFO(this->get_logger(), " arrive_distance: %.3f m", arrive_distance_);
         RCLCPP_INFO(this->get_logger(), " min_distance_for_arm_task: %.3f m", min_distance_for_arm_task_);
         RCLCPP_INFO(this->get_logger(), " reposition_back_distance: %.3f m", reposition_back_distance_);
         RCLCPP_INFO(this->get_logger(), " avoid_distance: %.3f m", avoid_dist_);
         RCLCPP_INFO(this->get_logger(), " arm_offset_x: %.4f m", arm_offset_x_);
+        RCLCPP_INFO(this->get_logger(), " arm_target_comp_x: %.4f m", arm_target_comp_x_);
+        RCLCPP_INFO(this->get_logger(), "rtk_x_offset: %.4f m", rtk_x_offset_);
         RCLCPP_INFO(this->get_logger(), "rtk_hz: %d", rtk_hz_);
         RCLCPP_INFO(this->get_logger(), "distance_to_slow_down: %.3f", distance_to_slow_down_);
         RCLCPP_INFO(this->get_logger(), "min_useful_vyaw: %.3f", min_useful_vyaw_);
         RCLCPP_INFO(this->get_logger(), "max_vyaw: %.3f", max_vyaw_);
         RCLCPP_INFO(this->get_logger(), "waypoint_file_path: %s", waypoint_file_path_.c_str());
+        RCLCPP_INFO(this->get_logger(), "operation_mode: %s", operation_mode_.c_str());
+        RCLCPP_INFO(this->get_logger(), "arm_reset_on_pause: %s", arm_reset_on_pause_ ? "true" : "false");
+        RCLCPP_INFO(this->get_logger(), "arm_safety_reset_timeout_seconds: %.2f", arm_safety_reset_timeout_seconds_);
 
         current_vx_ = 0.0;
         current_vy_ = 0.0;
@@ -119,9 +170,11 @@ public:
         motor_temp_publisher_ = this->create_publisher<std_msgs::msg::Float32MultiArray>("/motors_temperatures", 10);
         odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("/b2w_odom", 50);
         path_pub_ = this->create_publisher<nav_msgs::msg::Path>("/b2w_path", 10);
+        progress_pub_ = this->create_publisher<std_msgs::msg::Byte>("/progress", 10);
         acquired_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/acquired_points", 10);
         unacquired_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/unacquired_points", 10);
         path_msg_.header.frame_id = "map";
+        publishProgress();
         odom_rtk_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
             "/epsg_position", 10, [this](const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
                  this->RtkOdomCallback(msg);
@@ -136,6 +189,12 @@ public:
         z1_move_to_target_client_ = this->create_client<z1_arm_controller_cpp::srv::MoveArm>("/z1_move_to_target");
         trigger_relay_client_ = this->create_client<std_srvs::srv::Trigger>("/trigger_valve_ch1");
         z1_reset_arm_client_ = this->create_client<z1_arm_controller_cpp::srv::MoveArm>("/z1_reset_arm");
+        emergency_stop_service_ = this->create_service<std_srvs::srv::Trigger>(
+            "/emergency_stop",
+            std::bind(&B2WNavigationController::HandleEmergencyStop, this, std::placeholders::_1, std::placeholders::_2));
+        erase_emergency_stop_service_ = this->create_service<std_srvs::srv::Trigger>(
+            "/erase_emergency_stop",
+            std::bind(&B2WNavigationController::HandleEraseEmergencyStop, this, std::placeholders::_1, std::placeholders::_2));
 
         sport_client_.SetTimeout(25.0f);
         sport_client_.Init();
@@ -159,7 +218,7 @@ public:
         // 发送停止命令给机器人
         try {
             sport_client_.Move(0, 0, 0);
-            sport_client_.StandDown();
+            // sport_client_.StandDown();
         } catch (...) {
             RCLCPP_WARN(this->get_logger(), "Exception during sport_client cleanup.");
         }
@@ -182,8 +241,8 @@ private:
 
         double angle_step = last_scan_.angle_increment;
         int center_idx = size / 2;
-        // 扫描前方 -45度 到 +45度
-        int span = (int)((M_PI/4.0) / angle_step); // 45度转弧度
+        // 扫描前方 -50度 到 +50度
+        int span = (int)((50.0 * M_PI / 180.0) / angle_step); // 50度转弧度
         int start_idx = std::max(0, center_idx - span);
         int end_idx = std::min(size - 1, center_idx + span);
 
@@ -199,33 +258,7 @@ private:
     }
     // 寻找空旷方向 (返回建议的角速度)
     double find_clear_direction() {
-        if (!has_scan_data_) return -0.5; // 默认右转
-
-        int size = last_scan_.ranges.size();
-        int center_idx = size / 2;
-        double angle_step = last_scan_.angle_increment;
-        int span_90 = (int)((M_PI/2.0) / angle_step); // 90度
-
-        int left_idx = (center_idx + span_90) % size;
-        int right_idx = (center_idx - span_90 + size) % size;
-
-        float left_dist = 100.0;
-        float right_dist = 100.0;
-
-        if (last_scan_.ranges[left_idx] > last_scan_.range_min && 
-            last_scan_.ranges[left_idx] < last_scan_.range_max)
-            left_dist = last_scan_.ranges[left_idx];
-
-        if (last_scan_.ranges[right_idx] > last_scan_.range_min && 
-            last_scan_.ranges[right_idx] < last_scan_.range_max)
-            right_dist = last_scan_.ranges[right_idx];
-
-        // 哪边远往哪边转
-        if (left_dist > right_dist) {
-            return 0.5;  // 向左转
-        } else {
-            return -0.5; // 向右转
-        }
+        return -0.5; // 默认始终右转，避免在左右空间接近时来回切换
     }
 
     // 计算角度误差 [修正版，处理 PI 跳变]
@@ -238,15 +271,13 @@ private:
 
     void ImuUpdate()
     {
-        PublishOdom();
+        // Keep IMU timer focused on IMU-related work only.
     }
 
     void channel_callback(const void* msg_raw)
     {
         const unitree_go::msg::dds_::LowState_* msg = 
                 static_cast<const unitree_go::msg::dds_::LowState_*>(msg_raw);
-        const unitree_go::msg::dds_::BmsState_* msg_battery = 
-                static_cast<const unitree_go::msg::dds_::BmsState_*>(msg_raw);
         auto current_time = this->now();
         double dt = (current_time - last_time_).seconds(); // 计算时间间隔，单位：秒
         // 检查时间间隔，防止 dt 过小或为负（例如节点刚启动或时钟异常）
@@ -284,7 +315,7 @@ private:
         last_time_ = current_time;
         imu_publisher_->publish(imu_msg);
         // ---------------- 新增：电池状态解析 ----------------
-        const auto& bms = *msg_battery;
+        const auto& bms = msg->bms_state();
         uint8_t battery_soc = bms.soc();     // 电池电量（1~100）
         uint8_t battery_status = bms.status();  // 电池状态（SAFE, CHG, DCHG 等）
         /*RCLCPP_INFO_THROTTLE( this->get_logger(),  *this->get_clock(), 
@@ -322,16 +353,12 @@ private:
     }
     void RtkOdomCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
     {
-        // ===== 1. RTK 在 base_link 中的外参 =====
-        constexpr double RTK_X = -0.4477;  
-        constexpr double RTK_Z =  0.3762;
-        // ===== 2. 姿态快照（避免回调竞争）=====
         double rtk_x = msg->pose.position.x;
         double rtk_y = msg->pose.position.y;
         current_z_ = msg->pose.position.z;
         double yaw_ros = get_yaw_from_quaternion(msg->pose.orientation);
         current_yaw_ = yaw_ros;
-        double effective_offset = std::abs(RTK_X) ;
+        double effective_offset = std::abs(rtk_x_offset_) ;
         double base_x = rtk_x + effective_offset * std::cos(current_yaw_);
         double base_y = rtk_y + effective_offset * std::sin(current_yaw_);
         
@@ -348,8 +375,257 @@ private:
         return angle;
     }
 
+    bool HasValidPose() const
+    {
+        return std::isfinite(current_x_) &&
+               std::isfinite(current_y_) &&
+               std::isfinite(current_yaw_);
+    }
+
+    const char *StateToString(State state) const
+    {
+        switch (state) {
+            case WAITING_FOR_WAYPOINT: return "WAITING_FOR_WAYPOINT";
+            case ALIGNING_YAW: return "ALIGNING_YAW";
+            case MOVING_TO_TARGET: return "MOVING_TO_TARGET";
+            case REPOSITIONING_BACKWARD: return "REPOSITIONING_BACKWARD";
+            case WAITING_FOR_FRESH_RTK: return "WAITING_FOR_FRESH_RTK";
+            case AVOID_TURNING: return "AVOID_TURNING";
+            case AVOID_MOVING: return "AVOID_MOVING";
+            case EXECUTING_ARM_TASK: return "EXECUTING_ARM_TASK";
+            case RETRYING_ARM_AFTER_FORWARD: return "RETRYING_ARM_AFTER_FORWARD";
+            case RETRYING_ARM_AFTER_BACKUP: return "RETRYING_ARM_AFTER_BACKUP";
+            case TRIGGERING_RELAY: return "TRIGGERING_RELAY";
+            case RESETTING_ARM: return "RESETTING_ARM";
+            case GET_NEXT_WAYPOINT: return "GET_NEXT_WAYPOINT";
+            case FINISH_ALL_POINTS: return "FINISH_ALL_POINTS";
+            default: return "UNKNOWN";
+        }
+    }
+
+    bool IsArmRelatedState() const
+    {
+        switch (state_) {
+            case EXECUTING_ARM_TASK:
+            case RETRYING_ARM_AFTER_FORWARD:
+            case RETRYING_ARM_AFTER_BACKUP:
+            case TRIGGERING_RELAY:
+            case RESETTING_ARM:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    void RequestArmSafetyReset(const std::string &reason)
+    {
+        if (!arm_reset_on_pause_) {
+            return;
+        }
+        if (!IsArmRelatedState()) {
+            return;
+        }
+        if (arm_safety_reset_requested_) {
+            return;
+        }
+
+        // 如果导航主流程已经在 RESETTING_ARM 中并发出过 /z1_reset_arm,
+        // 复用既有 future, 避免对 Z1 控制器重复入队同一个 backToStart.
+        if (state_ == RESETTING_ARM && arm_reset_task_requested_ && arm_reset_task_future_.valid()) {
+            arm_safety_reset_future_ = arm_reset_task_future_;
+            arm_safety_reset_requested_ = true;
+            arm_safety_reset_request_time_ = this->now();
+            RCLCPP_WARN(this->get_logger(),
+                "Reusing existing /z1_reset_arm future for safety reset (reason=%s).",
+                reason.c_str());
+            return;
+        }
+
+        if (!z1_reset_arm_client_->service_is_ready()) {
+            RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+                "/z1_reset_arm service not ready; safety reset deferred (reason=%s).",
+                reason.c_str());
+            return;
+        }
+
+        auto request = std::make_shared<z1_arm_controller_cpp::srv::MoveArm::Request>();
+        auto safety_future = z1_reset_arm_client_->async_send_request(request);
+        arm_safety_reset_future_ = safety_future.future.share();
+        arm_safety_reset_requested_ = true;
+        arm_safety_reset_request_time_ = this->now();
+        RCLCPP_WARN(this->get_logger(),
+            "Arm safety reset dispatched at state=%s (reason=%s).",
+            StateToString(state_), reason.c_str());
+    }
+
+    void PollArmSafetyReset()
+    {
+        if (!arm_safety_reset_requested_) {
+            return;
+        }
+        if (!arm_safety_reset_future_.valid()) {
+            arm_safety_reset_requested_ = false;
+            return;
+        }
+
+        if (arm_safety_reset_future_.wait_for(std::chrono::milliseconds(0)) == std::future_status::ready) {
+            bool ok = false;
+            std::string msg;
+            try {
+                auto result = arm_safety_reset_future_.get();
+                ok = result->success;
+                msg = result->message;
+            } catch (const std::exception &e) {
+                msg = std::string("future exception: ") + e.what();
+            }
+            if (ok) {
+                RCLCPP_INFO(this->get_logger(),
+                    "Arm safety reset succeeded: %s. Forcing state to GET_NEXT_WAYPOINT.",
+                    msg.c_str());
+                state_ = GET_NEXT_WAYPOINT;
+            } else {
+                RCLCPP_ERROR(this->get_logger(),
+                    "Arm safety reset failed: %s. Forcing state to WAITING_FOR_WAYPOINT.",
+                    msg.c_str());
+                state_ = WAITING_FOR_WAYPOINT;
+            }
+            arm_task_requested_ = false;
+            arm_reset_task_requested_ = false;
+            ch1_trigger_task_requested_ = false;
+            arm_task_future_ = {};
+            arm_reset_task_future_ = {};
+            ch1_trigger_task_future_ = {};
+            arm_safety_reset_requested_ = false;
+            arm_safety_reset_future_ = {};
+            pause_stop_latched_ = false;
+            return;
+        }
+
+        const double elapsed = (this->now() - arm_safety_reset_request_time_).seconds();
+        if (elapsed > arm_safety_reset_timeout_seconds_) {
+            RCLCPP_ERROR(this->get_logger(),
+                "Arm safety reset timed out after %.1fs (limit=%.1fs). Forcing state to WAITING_FOR_WAYPOINT.",
+                elapsed, arm_safety_reset_timeout_seconds_);
+            state_ = WAITING_FOR_WAYPOINT;
+            arm_task_requested_ = false;
+            arm_reset_task_requested_ = false;
+            ch1_trigger_task_requested_ = false;
+            arm_task_future_ = {};
+            arm_reset_task_future_ = {};
+            ch1_trigger_task_future_ = {};
+            arm_safety_reset_requested_ = false;
+            arm_safety_reset_future_ = {};
+            pause_stop_latched_ = false;
+        }
+    }
+
+    void HandleEmergencyStop(
+        const std::shared_ptr<std_srvs::srv::Trigger::Request> /*request*/,
+        std::shared_ptr<std_srvs::srv::Trigger::Response> response)
+    {
+        const bool was_paused = paused_;
+
+        if (!was_paused) {
+            paused_ = true;
+            pause_stop_latched_ = false;
+            moving_ = false;
+            try {
+                sport_client_.Move(0, 0, 0);
+            } catch (...) {
+                RCLCPP_WARN(this->get_logger(), "Exception while stopping robot during emergency stop.");
+            }
+        }
+
+        // 不论是第一次 pause 还是重复 pause, 都尝试调度机械臂安全复位.
+        // RequestArmSafetyReset 内部会做去重和状态判断, 多次调用是安全的.
+        if (was_paused) {
+            RequestArmSafetyReset("emergency stop re-issued while already paused");
+        } else {
+            RequestArmSafetyReset(std::string("emergency stop at state ") + StateToString(state_));
+        }
+
+        response->success = true;
+        if (was_paused) {
+            response->message = std::string("Task already paused at state: ") + StateToString(state_);
+        } else {
+            response->message = std::string("Task paused at state: ") + StateToString(state_);
+            RCLCPP_WARN(this->get_logger(), "%s", response->message.c_str());
+        }
+    }
+
+    void HandleEraseEmergencyStop(
+        const std::shared_ptr<std_srvs::srv::Trigger::Request> /*request*/,
+        std::shared_ptr<std_srvs::srv::Trigger::Response> response)
+    {
+        if (!paused_) {
+            response->success = true;
+            response->message = std::string("Task is not paused. Current state: ") + StateToString(state_);
+            return;
+        }
+
+        paused_ = false;
+        pause_stop_latched_ = false;
+        response->success = true;
+        response->message = std::string("Task resumed from state: ") + StateToString(state_);
+        RCLCPP_INFO(this->get_logger(), "%s", response->message.c_str());
+    }
+
     void ControlLoop()
     {
+        PublishOdom();
+        PollArmSafetyReset();
+
+        // 已 paused 时, 如果当前还处在机械臂相关状态而未发出安全复位,
+        // 在每个 tick 重试一次 (服务可能稍后才就绪).
+        if (paused_ && arm_reset_on_pause_ && IsArmRelatedState() && !arm_safety_reset_requested_) {
+            RequestArmSafetyReset("ControlLoop retry while paused");
+        }
+
+        if (arm_safety_reset_requested_) {
+            if (!pause_stop_latched_) {
+                try {
+                    sport_client_.Move(0, 0, 0);
+                } catch (...) {
+                    RCLCPP_WARN(this->get_logger(), "Exception while holding robot stop during arm safety reset.");
+                }
+                moving_ = false;
+                pause_stop_latched_ = true;
+            }
+            RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+                "Arm safety reset in progress. Holding chassis stopped at state: %s",
+                StateToString(state_));
+            return;
+        }
+
+        if (paused_) {
+            if (!pause_stop_latched_) {
+                try {
+                    sport_client_.Move(0, 0, 0);
+                } catch (...) {
+                    RCLCPP_WARN(this->get_logger(), "Exception while holding robot stop in paused state.");
+                }
+                moving_ = false;
+                pause_stop_latched_ = true;
+            }
+            RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+                "Emergency pause active. Controller frozen at state: %s",
+                StateToString(state_));
+            return;
+        }
+        pause_stop_latched_ = false;
+
+        if (!HasValidPose()) {
+            RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+                "Waiting for valid RTK pose before executing navigation state machine.");
+            try {
+                sport_client_.Move(0, 0, 0);
+            } catch (...) {
+                RCLCPP_WARN(this->get_logger(), "Exception while holding robot stop before valid RTK pose.");
+            }
+            moving_ = false;
+            return;
+        }
+
         constexpr double kAngularKp = 1.2;        
         const double dx_to_target = target_x_ - current_x_;
         const double dy_to_target = target_y_ - current_y_;
@@ -433,12 +709,12 @@ private:
         {
             if (is_front_obstacle()) {
                 RCLCPP_WARN(this->get_logger(), "Obstacle detected! Switching to Avoidance.");
-                state_ = AVOID_TURNING;
                 sport_client_.Move(0.0, 0.0, 0.0);
+                state_ = AVOID_TURNING;
                 break; 
             }
             if (distance_to_target <= arrive_distance_) {
-                if (distance_to_target < min_distance_for_arm_task_) {
+                if (!dock_return_mode_ && distance_to_target < min_distance_for_arm_task_) {
                     RCLCPP_WARN(this->get_logger(),
                         "Too close to waypoint for arm task (dist=%.4f m < %.4f m). Backing up to reposition.",
                         distance_to_target, min_distance_for_arm_task_);
@@ -455,9 +731,16 @@ private:
                 RCLCPP_INFO(this->get_logger(), "Actual Yaw:         %.2f°", current_yaw_ * 180.0 / M_PI);
                 RCLCPP_INFO(this->get_logger(), "Distance Error:     %.4f m", distance_to_target);
                 RCLCPP_INFO(this->get_logger(), "=========================================");
+                sport_client_.Move(0, 0, 0);
+                if (dock_return_mode_) {
+                    RCLCPP_INFO(this->get_logger(),
+                        "Dock-return waypoint reached; skipping arm/relay spray sequence.");
+                    state_ = GET_NEXT_WAYPOINT;
+                    return;
+                }
                 arm_wait_rtk_seq_ = rtk_update_seq_;
+                arm_rtk_buf_.clear();
                 state_ = WAITING_FOR_FRESH_RTK;
-                sport_client_.Move(0, 0, 0); 
                 return; 
             }
             double v_cmd = 0.0, yaw_cmd = 0.0 , desired_w = 0.0;
@@ -524,12 +807,36 @@ private:
         case WAITING_FOR_FRESH_RTK:
         {
             sport_client_.Move(0, 0, 0);
-            if (rtk_update_seq_ <= arm_wait_rtk_seq_) {
+            // A2: 等 ARM_RTK_FRAMES 帧新 RTK，计算均值后再触发机械臂
+            // arm_wait_rtk_seq_ 是停车时的基准序号，每收集一帧后 buf.size() +1
+            if (rtk_update_seq_ <= arm_wait_rtk_seq_ + static_cast<uint64_t>(arm_rtk_buf_.size())) {
                 RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 500,
-                    "Waypoint reached. Waiting for one fresh RTK frame before arm task...");
+                    "Collecting RTK frames for arm task: %zu/%d",
+                    arm_rtk_buf_.size(), ARM_RTK_FRAMES);
                 return;
             }
-            RCLCPP_INFO(this->get_logger(), "Fresh RTK frame received. Start arm task.");
+            // 新帧到了，入 buffer
+            arm_rtk_buf_.push_back({current_x_, current_y_,
+                                    std::sin(current_yaw_), std::cos(current_yaw_)});
+            if (static_cast<int>(arm_rtk_buf_.size()) < ARM_RTK_FRAMES) {
+                return;
+            }
+            // 收满 ARM_RTK_FRAMES 帧，计算平面均值 + yaw 圆周均值
+            double sum_x = 0, sum_y = 0, sum_sin = 0, sum_cos = 0;
+            for (const auto & s : arm_rtk_buf_) {
+                sum_x   += s.x;
+                sum_y   += s.y;
+                sum_sin += s.sin_yaw;
+                sum_cos += s.cos_yaw;
+            }
+            arm_avg_x_   = sum_x / ARM_RTK_FRAMES;
+            arm_avg_y_   = sum_y / ARM_RTK_FRAMES;
+            arm_avg_yaw_ = std::atan2(sum_sin, sum_cos);
+            arm_rtk_buf_.clear();
+            RCLCPP_INFO(this->get_logger(),
+                "RTK %d-frame avg ready: (%.4f, %.4f) yaw=%.2f°",
+                ARM_RTK_FRAMES, arm_avg_x_, arm_avg_y_,
+                arm_avg_yaw_ * 180.0 / M_PI);
             state_ = EXECUTING_ARM_TASK;
             return;
         }
@@ -554,12 +861,15 @@ private:
             }
             // 第一次进入：关闭避障 + 发起机械臂动作
             if (!arm_task_requested_) {
-                // === 计算机械臂底座 z1_base 在世界坐标系的位置 ===
-                double robot_yaw = current_yaw_;
-                const double arm_offset_x = arm_offset_x_; 
-                const double arm_offset_z = 0.05;   // unused for 2D, but noted
-                double z1_world_x = current_x_ + arm_offset_x * std::cos(robot_yaw);
-                double z1_world_y = current_y_ + arm_offset_x * std::sin(robot_yaw);
+                // === A2: 使用多帧 RTK 均值（已在 WAITING_FOR_FRESH_RTK 计算）===
+                double robot_yaw = arm_avg_yaw_;
+                const double arm_offset_x = arm_offset_x_;
+                double z1_world_x = arm_avg_x_ + arm_offset_x * std::cos(robot_yaw);
+                double z1_world_y = arm_avg_y_ + arm_offset_x * std::sin(robot_yaw);
+                RCLCPP_INFO(this->get_logger(),
+                    "ARM_TRIGGER base=(%.4f,%.4f) yaw=%.2f° z1_world=(%.4f,%.4f) target=(%.4f,%.4f)",
+                    arm_avg_x_, arm_avg_y_, robot_yaw * 180.0 / M_PI,
+                    z1_world_x, z1_world_y, target_x_, target_y_);
                 // === 计算目标点相对于 z1_base 的局部坐标 ===
                 double dx_world = target_x_ - z1_world_x;
                 double dy_world = target_y_ - z1_world_y;
@@ -568,6 +878,7 @@ private:
                 double sin_h = std::sin(robot_yaw);
                 double dx_local =  dx_world * cos_h + dy_world * sin_h;
                 double dy_local = -dx_world * sin_h + dy_world * cos_h;
+                dx_local += arm_target_comp_x_;
                 last_dx_local_ = dx_local;
                 // 设定末端目标高度（可根据任务调整）
                 const double target_z = z1_arm_end_height_;
@@ -576,10 +887,8 @@ private:
                 request->target_pose.position.x = dx_local;
                 request->target_pose.position.y = dy_local;
                 request->target_pose.position.z = target_z;
-                // 可选：设置末端朝向（例如让夹爪垂直向下）
-                // 使用四元数表示：绕 Y 轴旋转 90 度
                 tf2::Quaternion q;
-                q.setRPY(0, 83.0 * M_PI / 180.0, 0); // 经测试，机械臂末端平面朝下的角度为83度
+                q.setRPY(0, z1_arm_target_pitch_deg_ * M_PI / 180.0, 0);
                 request->target_pose.orientation = tf2::toMsg(q);
                 /*request->target_pose.orientation.w = 0.9004;
                 request->target_pose.orientation.x = 0.0;
@@ -709,6 +1018,7 @@ private:
         {
             sport_client_.Move(0, 0, 0);
             RCLCPP_INFO(this->get_logger(), "Ready to fetch next waypoint...");
+            publishProgress();
             publishWaypointClouds();
             state_ = WAITING_FOR_WAYPOINT;   
             break;
@@ -717,7 +1027,15 @@ private:
         case FINISH_ALL_POINTS:
         {
             sport_client_.Move(0, 0, 0);
-            return; 
+            if (stop_on_completion_) {
+                RCLCPP_INFO(this->get_logger(),
+                    "All waypoints completed. stop_on_completion=true, shutting down.");
+                rclcpp::shutdown();
+                return;
+            }
+            RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 5000,
+                "All waypoints completed. Robot idle at final position.");
+            break;
         }
 
         }
@@ -797,22 +1115,6 @@ private:
     }
 
 private:
-    enum State {
-        WAITING_FOR_WAYPOINT,
-        ALIGNING_YAW,
-        MOVING_TO_TARGET,
-        REPOSITIONING_BACKWARD,
-        WAITING_FOR_FRESH_RTK,
-        AVOID_TURNING,
-        AVOID_MOVING,
-        EXECUTING_ARM_TASK,
-        RETRYING_ARM_AFTER_FORWARD,
-        RETRYING_ARM_AFTER_BACKUP,
-        TRIGGERING_RELAY,
-        RESETTING_ARM,
-        GET_NEXT_WAYPOINT,
-        FINISH_ALL_POINTS  
-    };
     State state_;
 
     // --- 成员变量 ---
@@ -825,21 +1127,29 @@ private:
     std::unique_ptr<ChannelSubscriber<unitree_go::msg::dds_::LowState_>> lowstate_subscriber_;
     nav_msgs::msg::Path path_msg_;
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
+    rclcpp::Publisher<std_msgs::msg::Byte>::SharedPtr progress_pub_;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr acquired_pub_;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr unacquired_pub_;
 
     std::string waypoint_file_path_;
+    std::string operation_mode_ = "spray";
     std::vector<Waypoint> waypoints_;
     size_t current_waypoint_index_ = 0;
 
     rclcpp::Client<z1_arm_controller_cpp::srv::MoveArm>::SharedPtr z1_move_to_target_client_;
     rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr trigger_relay_client_;
     rclcpp::Client<z1_arm_controller_cpp::srv::MoveArm>::SharedPtr z1_reset_arm_client_;
+    rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr emergency_stop_service_;
+    rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr erase_emergency_stop_service_;
     // 用于保存机械臂动作的 future 和是否已发起请求
     rclcpp::Client<z1_arm_controller_cpp::srv::MoveArm>::SharedFuture arm_task_future_;
     bool arm_task_requested_ = false;
     rclcpp::Client<z1_arm_controller_cpp::srv::MoveArm>::SharedFuture arm_reset_task_future_;
     bool arm_reset_task_requested_ = false;
+    // 安全复位 (由 pause/断联 pause 主动触发, 独立于正常的 RESETTING_ARM 状态机)
+    bool arm_safety_reset_requested_ = false;
+    rclcpp::Client<z1_arm_controller_cpp::srv::MoveArm>::SharedFuture arm_safety_reset_future_;
+    rclcpp::Time arm_safety_reset_request_time_;
 
     rclcpp::Client<std_srvs::srv::Trigger>::SharedFuture ch1_trigger_task_future_;
     bool ch1_trigger_task_requested_ = false;
@@ -856,26 +1166,41 @@ private:
     double current_vx_ = 0.0, current_vy_ = 0.0;
     double last_dx_local_ = 0.0;
     bool moving_;
+    bool paused_ = false;
+    bool pause_stop_latched_ = false;
+    bool stop_on_completion_ = false;
+    bool dock_return_mode_ = false;
     double last_path_x_ = 0.0, last_path_y_ = 0.0;
-    double current_yaw_; 
+    double current_yaw_ = NAN; 
 
     // 声明可配置参数（作为类成员）
     double heading_alignment_threshold_, moving_to_target_forward_speed_;
     double z1_arm_end_height_;
+    double z1_arm_target_pitch_deg_;
     double arrive_distance_;
     double min_distance_for_arm_task_;
     double reposition_back_distance_;
     double avoid_dist_, obs_range_;
     double arm_offset_x_;
+    double arm_target_comp_x_;
+    double rtk_x_offset_;
     int rtk_hz_;
     double distance_to_slow_down_;
     double min_useful_vyaw_, max_vyaw_;
+    bool arm_reset_on_pause_ = true;
+    double arm_safety_reset_timeout_seconds_ = 15.0;
 
     // 存储上一次回调的时间，用于计算时间间隔
     rclcpp::Time last_time_;
     rclcpp::Time last_rtk_update_time_;
     uint64_t rtk_update_seq_ = 0;
     uint64_t arm_wait_rtk_seq_ = 0;
+
+    // A2: 多帧 RTK 均值（在 WAITING_FOR_FRESH_RTK 里采集，EXECUTING_ARM_TASK 里使用）
+    struct RtkSample { double x, y, sin_yaw, cos_yaw; };
+    static constexpr int ARM_RTK_FRAMES = 5;
+    std::vector<RtkSample> arm_rtk_buf_;
+    double arm_avg_x_ = 0.0, arm_avg_y_ = 0.0, arm_avg_yaw_ = 0.0;
 
     sensor_msgs::msg::PointCloud2 makeWaypointCloud(size_t from, size_t to)
     {
@@ -899,6 +1224,22 @@ private:
             *iz = waypoints_[i].z;
         }
         return cloud;
+    }
+
+    void publishProgress()
+    {
+        std_msgs::msg::Byte msg;
+        if (waypoints_.empty()) {
+            msg.data = 0;
+        } else {
+            const double ratio = static_cast<double>(current_waypoint_index_) /
+                                 static_cast<double>(waypoints_.size());
+            const int percent = std::clamp(static_cast<int>(std::round(ratio * 100.0)), 0, 100);
+            msg.data = static_cast<uint8_t>(percent);
+        }
+        progress_pub_->publish(msg);
+        RCLCPP_INFO(this->get_logger(), "Progress: %u%% (%zu/%zu waypoints completed)",
+                    static_cast<unsigned>(msg.data), current_waypoint_index_, waypoints_.size());
     }
 
     void publishWaypointClouds()

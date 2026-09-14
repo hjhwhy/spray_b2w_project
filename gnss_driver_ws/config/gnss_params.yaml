@@ -8,3 +8,15 @@ gnss_driver:
     waypoint_file: "~/gnss_waypoints.txt"
     project_mode: "epsg"   #或 “epsg"
     use_epsg_crs_datum: true      # 默认使用 datum 转换，若有偏差，说明打点时没用，再改成false
+    use_hepos_grid_correction: true
+    hepos_e_grid_path: "/home/test/rtk_nav_ws/fj_dynamic/dE_2km_V1-0.egrd"
+    hepos_n_grid_path: "/home/test/rtk_nav_ws/fj_dynamic/dN_2km_V1-0.ngrd"
+    hepos_grid_spacing_m: 2000.0
+    hepos_grid_origin_x: -64400.0
+    hepos_grid_origin_y: 3840000.0
+    hepos_grid_x_increases_east: true
+    hepos_grid_y_increases_north: true
+    hepos_grid_value_in_cm: true
+    use_hepos_local_offset_fallback: false
+    hepos_local_offset_e: 0.3792
+    hepos_local_offset_n: 0.9843

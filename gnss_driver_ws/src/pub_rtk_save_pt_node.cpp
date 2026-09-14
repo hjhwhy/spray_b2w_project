@@ -34,6 +34,8 @@
 #include <proj.h>
 #include <std_srvs/srv/trigger.hpp>
 
+#include "hepos_grid_corrector.hpp"
+
 using boost::asio::ip::tcp;
 
 class GNSSDriver : public rclcpp::Node
@@ -48,6 +50,18 @@ public:
         this->declare_parameter<std::string>("waypoint_file", "~/gnss_waypoints.txt");
         this->declare_parameter<std::string>("project_mode", "utm");
         this->declare_parameter<bool>("use_epsg_crs_datum", true);
+        this->declare_parameter<bool>("use_hepos_grid_correction", false);
+        this->declare_parameter<std::string>("hepos_e_grid_path", "/home/test/rtk_nav_ws/fj_dynamic/dE_2km_V1-0.egrd");
+        this->declare_parameter<std::string>("hepos_n_grid_path", "/home/test/rtk_nav_ws/fj_dynamic/dN_2km_V1-0.ngrd");
+        this->declare_parameter<double>("hepos_grid_spacing_m", 2000.0);
+        this->declare_parameter<double>("hepos_grid_origin_x", -64400.0);
+        this->declare_parameter<double>("hepos_grid_origin_y", 3840000.0);
+        this->declare_parameter<bool>("hepos_grid_x_increases_east", true);
+        this->declare_parameter<bool>("hepos_grid_y_increases_north", true);
+        this->declare_parameter<bool>("hepos_grid_value_in_cm", true);
+        this->declare_parameter<bool>("use_hepos_local_offset_fallback", false);
+        this->declare_parameter<double>("hepos_local_offset_e", 0.0);
+        this->declare_parameter<double>("hepos_local_offset_n", 0.0);
         
         connect_mode_ = this->get_parameter("connect_mode").as_string();
         port_name_ = this->get_parameter("port").as_string();
@@ -55,6 +69,7 @@ public:
         waypoint_file_ = this->get_parameter("waypoint_file").as_string();
         project_mode_ = this->get_parameter("project_mode").as_string();
         use_epsg_crs_datum_ = this->get_parameter("use_epsg_crs_datum").as_bool();
+        use_hepos_grid_correction_ = this->get_parameter("use_hepos_grid_correction").as_bool();
 
         if (waypoint_file_.substr(0, 2) == "~/") {
             const char* home = std::getenv("HOME");
@@ -66,6 +81,22 @@ public:
         RCLCPP_INFO(this->get_logger(), "Waypoint file will be saved to: %s", waypoint_file_.c_str());
         RCLCPP_INFO(this->get_logger(), "project_mode = %s", project_mode_.c_str());
         RCLCPP_INFO(this->get_logger(), "use_epsg_crs_datum = %s",use_epsg_crs_datum_ ? "true" : "false");
+        RCLCPP_INFO(this->get_logger(), "use_hepos_grid_correction = %s", use_hepos_grid_correction_ ? "true" : "false");
+        if (use_hepos_grid_correction_) {
+            HeposGridCorrector::Params hepos_params;
+            hepos_params.e_grid_path = this->get_parameter("hepos_e_grid_path").as_string();
+            hepos_params.n_grid_path = this->get_parameter("hepos_n_grid_path").as_string();
+            hepos_params.grid_spacing_m = this->get_parameter("hepos_grid_spacing_m").as_double();
+            hepos_params.origin_x = this->get_parameter("hepos_grid_origin_x").as_double();
+            hepos_params.origin_y = this->get_parameter("hepos_grid_origin_y").as_double();
+            hepos_params.x_increases_east = this->get_parameter("hepos_grid_x_increases_east").as_bool();
+            hepos_params.y_increases_north = this->get_parameter("hepos_grid_y_increases_north").as_bool();
+            hepos_params.grid_value_in_cm = this->get_parameter("hepos_grid_value_in_cm").as_bool();
+            hepos_params.use_local_offset_fallback = this->get_parameter("use_hepos_local_offset_fallback").as_bool();
+            hepos_params.local_offset_e = this->get_parameter("hepos_local_offset_e").as_double();
+            hepos_params.local_offset_n = this->get_parameter("hepos_local_offset_n").as_double();
+            hepos_grid_.load(hepos_params, this->get_logger());
+        }
         // 创建发布者
         nmea_sentence_pub_ = this->create_publisher<nmea_msgs::msg::Sentence>("nmea_sentence", 1000);
         gnss_pos_pub_ = this->create_publisher<sensor_msgs::msg::NavSatFix>("gnss_pos", 10);
@@ -156,6 +187,8 @@ private:
     std::string waypoint_file_;
     std::string project_mode_;
     bool use_epsg_crs_datum_;
+    bool use_hepos_grid_correction_;
+    HeposGridCorrector hepos_grid_;
     
     std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
@@ -349,6 +382,14 @@ private:
 
                     epsg_x = coord.xy.x;
                     epsg_y = coord.xy.y;
+                    if (use_hepos_grid_correction_) {
+                        // Keep waypoint recording consistent with ins_parser:
+                        // HEPOS dE/dN grid is indexed by EPSG:2100 projected E/N.
+                        if (!hepos_grid_.correct(epsg_x, epsg_y, epsg_x, epsg_y)) {
+                            RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000,
+                                "HEPOS grid correction requested but current EPSG:2100 point is outside the grid and no fallback is available.");
+                        }
+                    }
                     // 发布 PointStamped 消息
                     geometry_msgs::msg::PointStamped greek_point;
                     greek_point.header.stamp = this->now();
@@ -516,6 +557,31 @@ private:
             }
         }
         RCLCPP_INFO(this->get_logger(), "Serial read thread exiting");
+    }
+
+    bool project_to_tm07(PJ_CONTEXT *context, double lon, double lat, double alt, double &tm07_x, double &tm07_y)
+    {
+        PJ *tm07 = proj_create(context,
+            "+proj=pipeline "
+            "+step +proj=unitconvert +xy_in=deg +xy_out=rad "
+            "+step +proj=tmerc "
+            "+lat_0=0 "
+            "+lon_0=24 "
+            "+k=0.9996 "
+            "+x_0=500000 "
+            "+y_0=0 "
+            "+ellps=GRS80"
+        );
+        if (!tm07) {
+            return false;
+        }
+
+        PJ_COORD tm07_coord = proj_coord(lon, lat, alt, 0);
+        tm07_coord = proj_trans(tm07, PJ_FWD, tm07_coord);
+        tm07_x = tm07_coord.xy.x;
+        tm07_y = tm07_coord.xy.y;
+        proj_destroy(tm07);
+        return std::isfinite(tm07_x) && std::isfinite(tm07_y);
     }
 
     // 成员变量

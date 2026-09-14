@@ -25,7 +25,10 @@ pkg_check_modules(PROJ REQUIRED proj)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GeographicLib REQUIRED geographiclib)
 
-include_directories(${PROJ_INCLUDE_DIRS})
+include_directories(
+  ${PROJ_INCLUDE_DIRS}
+  ${CMAKE_CURRENT_SOURCE_DIR}/../rtk_nav_ws/include
+)
 link_directories(${PROJ_LIBRARY_DIRS})
 
 add_executable(pub_rtk_save_pt_node src/pub_rtk_save_pt_node.cpp)
@@ -72,4 +75,3 @@ install(DIRECTORY
 )
 
 ament_package()
-
